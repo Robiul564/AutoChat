@@ -63,6 +63,23 @@ def rotate_token(db: Session, account: models.WhatsAppAccount, payload: schemas.
     return account
 
 
+def delete_account(db: Session, account: models.WhatsAppAccount) -> None:
+    account_id = account.id
+    business_id = account.business_id
+    phone_number_id = account.phone_number_id
+    display_phone_number = account.display_phone_number
+    db.delete(account)
+    audit(
+        db,
+        business_id=business_id,
+        action="whatsapp.account.deleted",
+        entity_type="whatsapp_account",
+        entity_id=str(account_id),
+        before={"phone_number_id": phone_number_id, "display_phone_number": display_phone_number},
+    )
+    db.commit()
+
+
 def resolve_tenant(db: Session, metadata: dict[str, Any], waba_id: str | None = None) -> models.WhatsAppAccount | None:
     phone_number_id = metadata.get("phone_number_id")
     query = db.query(models.WhatsAppAccount).filter(models.WhatsAppAccount.status.in_(["connected", "reauth_required"]))

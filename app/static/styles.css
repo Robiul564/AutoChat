@@ -108,10 +108,28 @@ button {
   padding: 0 14px;
 }
 
+button.small {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+button.danger {
+  border-color: #fecaca;
+  background: #fff1f2;
+  color: #be123c;
+}
+
 .tab.active,
 button:hover {
   background: var(--accent);
   border-color: var(--accent);
+  color: white;
+}
+
+button.danger:hover {
+  border-color: #be123c;
+  background: #be123c;
   color: white;
 }
 
@@ -306,6 +324,17 @@ pre {
   border: 1px solid var(--line);
   border-radius: 6px;
   background: white;
+}
+
+.account-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.mini-item-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
 }
 
 .item {

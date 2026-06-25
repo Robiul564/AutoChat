@@ -143,13 +143,22 @@ async function loadWhatsAppSetup() {
   $("#whatsappAccounts").innerHTML = accounts.length
     ? accounts
         .map(
-          (account) => `<div class="mini-item">
-            <strong>${escapeHtml(account.display_phone_number || account.phone_number_id)}</strong>
-            <span>${account.status} · Phone ID ${escapeHtml(account.phone_number_id)}</span>
+          (account) => `<div class="mini-item account-row">
+            <div class="mini-item-main">
+              <strong>${escapeHtml(account.display_phone_number || account.phone_number_id)}</strong>
+              <span>${account.status} · Phone ID ${escapeHtml(account.phone_number_id)}</span>
+            </div>
+            <button type="button" class="danger small platform-only" data-delete-whatsapp="${account.id}">Delete</button>
           </div>`
         )
         .join("")
     : `<div class="mini-item"><span>No WhatsApp account connected for this business yet.</span></div>`;
+  document.querySelectorAll("[data-delete-whatsapp]").forEach((button) => {
+    button.addEventListener("click", () => deleteWhatsAppAccount(Number(button.dataset.deleteWhatsapp)));
+  });
+  document.querySelectorAll("#whatsappAccounts .platform-only").forEach((el) => {
+    el.classList.toggle("platform-hidden", !state.isPlatformAdmin);
+  });
 }
 
 async function openConversation(id) {
@@ -205,6 +214,18 @@ async function simulateWebhook() {
   await api("/webhooks/meta/whatsapp", { method: "POST", body: JSON.stringify(payload) });
   toast("Webhook accepted");
   setTimeout(loadInbox, 400);
+}
+
+async function deleteWhatsAppAccount(accountId) {
+  if (!state.businessId || !accountId) return;
+  const account = state.whatsappAccounts.find((item) => item.id === accountId);
+  const label = account?.display_phone_number || account?.phone_number_id || "this WhatsApp account";
+  if (!confirm(`Delete ${label}? Incoming messages for this phone number will no longer route to this business.`)) return;
+  await runUiAction(async () => {
+    await api(`/api/businesses/${state.businessId}/whatsapp/accounts/${accountId}`, { method: "DELETE" });
+    await loadWhatsAppSetup();
+    toast("WhatsApp account deleted");
+  });
 }
 
 document.querySelectorAll(".tab").forEach((tab) => {

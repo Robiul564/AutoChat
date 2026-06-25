@@ -60,3 +60,13 @@ def rotate_token(business_id: int, account_id: int, payload: schemas.TokenRotate
     if not account:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="WhatsApp account not found")
     return whatsapp.rotate_token(db, account, payload)
+
+
+@router.delete("/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_account(business_id: int, account_id: int, db: Session = Depends(get_db), actor_email: str = Depends(get_actor_email)):
+    require_platform_admin(actor_email)
+    require_business_access(db, business_id, actor_email)
+    account = db.query(models.WhatsAppAccount).filter(models.WhatsAppAccount.business_id == business_id, models.WhatsAppAccount.id == account_id).one_or_none()
+    if not account:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="WhatsApp account not found")
+    whatsapp.delete_account(db, account)
