@@ -163,6 +163,24 @@ async function loadWhatsAppSetup() {
   });
 }
 
+async function refreshWebhookSetup() {
+  const button = $("#refreshWebhookSetup");
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = "Loading...";
+  try {
+    await loadSession();
+    if (!selectedBusinessId()) {
+      await loadBusinesses();
+    }
+    await loadWhatsAppSetup();
+    toast("Webhook loaded");
+  } finally {
+    button.disabled = false;
+    button.textContent = originalText;
+  }
+}
+
 async function openConversation(id) {
   state.conversationId = id;
   const detail = await api(`/api/businesses/${state.businessId}/conversations/${id}`);
@@ -276,6 +294,12 @@ $("#actorEmail").addEventListener("change", async () => {
 $("#adminKey").value = localStorage.getItem("adminKey") || "";
 $("#adminKey").addEventListener("change", () => {
   localStorage.setItem("adminKey", $("#adminKey").value);
+  runUiAction(async () => {
+    await loadSession();
+    await loadBusinesses();
+    await loadWhatsAppSetup();
+    await loadInbox();
+  });
 });
 
 $("#whatsappForm").addEventListener("submit", async (event) => {
@@ -380,7 +404,7 @@ $("#replyForm").addEventListener("submit", async (event) => {
 
 $("#simulateWebhook").addEventListener("click", simulateWebhook);
 $("#refreshInbox").addEventListener("click", loadInbox);
-$("#refreshWebhookSetup").addEventListener("click", () => runUiAction(loadWhatsAppSetup));
+$("#refreshWebhookSetup").addEventListener("click", () => runUiAction(refreshWebhookSetup));
 $("#refreshOnboarding").addEventListener("click", () => runUiAction(loadBotBehavior));
 $("#loadAnalytics").addEventListener("click", async () => {
   await runUiAction(async () => {
