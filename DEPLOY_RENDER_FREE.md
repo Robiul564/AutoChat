@@ -12,17 +12,18 @@ Render free web services are suitable for testing, but they can spin down when i
 4. Render will read `render.yaml` and create:
    - `linaraman` web service
    - `linaraman-db` Postgres database
-5. Keep these environment values:
+5. The deploy is pinned to Python `3.11.11` with `.python-version` and `PYTHON_VERSION`.
+6. Keep these environment values:
    - `WHATSAPP_SEND_MODE=mock`
    - `AI_MODEL_PROVIDER=mock`
-6. After the first deploy, open the Render service URL.
-7. Set `PUBLIC_BASE_URL` to that Render URL, for example:
+7. After the first deploy, open the Render service URL.
+8. Set `PUBLIC_BASE_URL` to that Render URL, for example:
    - `https://linaraman.onrender.com`
-8. Set:
+9. Set:
    - `ALLOWED_ORIGINS=https://YOUR-RENDER-SERVICE.onrender.com`
    - `ALLOWED_HOSTS=YOUR-RENDER-SERVICE.onrender.com`
-9. Copy the generated `ADMIN_API_KEY` from Render environment variables. You will need it in the app's Admin key field.
-10. Redeploy.
+10. Copy the generated `ADMIN_API_KEY` from Render environment variables. You will need it in the app's Admin key field.
+11. Redeploy.
 
 Health check:
 
