@@ -125,7 +125,7 @@ def send_text(db: Session, business_id: int, conversation_id: int, customer_id: 
     message_status = "mock_saved"
     provider_payload = {"mock": True, "phone_number_id": account.phone_number_id}
 
-    if settings.whatsapp_send_mode.lower() == "live":
+    if should_send_live(db, account):
         provider_id = f"pending-{account.phone_number_id}-{uuid4().hex[:12]}"
         provider_status = "pending_provider"
         message_status = "pending_provider"
@@ -140,7 +140,12 @@ def send_text(db: Session, business_id: int, conversation_id: int, customer_id: 
             message_status = "failed"
             logger.warning("WhatsApp live send failed for business=%s phone_number_id=%s error=%s", business_id, account.phone_number_id, exc.detail)
     else:
-        logger.info("WhatsApp reply saved in mock mode for business=%s phone_number_id=%s", business_id, account.phone_number_id)
+        logger.info(
+            "WhatsApp reply saved without live send: mode=%s business=%s phone_number_id=%s",
+            settings.whatsapp_send_mode,
+            business_id,
+            account.phone_number_id,
+        )
 
     message = models.Message(
         business_id=business_id,
@@ -164,6 +169,17 @@ def send_text(db: Session, business_id: int, conversation_id: int, customer_id: 
     db.commit()
     db.refresh(message)
     return message
+
+
+def should_send_live(db: Session, account: models.WhatsAppAccount) -> bool:
+    mode = settings.whatsapp_send_mode.lower()
+    if mode in {"off", "disabled"}:
+        return False
+    if mode == "mock" and not settings.is_production:
+        return False
+    if mode in {"live", "auto", "mock"}:
+        return bool(account.phone_number_id and db.get(models.Secret, account.access_token_secret_id))
+    return False
 
 
 def resolve_reply_account(db: Session, business_id: int, conversation_id: int) -> models.WhatsAppAccount | None:

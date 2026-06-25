@@ -56,7 +56,7 @@ function renderWebhookSetup(setup) {
   const callbackUrl = callbackUrlForCurrentOrigin(setup.callback_url);
   $("#webhookCallback").textContent = callbackUrl;
   $("#webhookToken").textContent = setup.verify_token;
-  $("#whatsappSendMode").textContent = setup.send_mode;
+  $("#whatsappSendMode").textContent = setup.send_mode === "auto" ? "auto - live for connected accounts" : setup.send_mode;
   $("#webhookNotice").textContent = setup.is_public_url
     ? "Use this callback URL and verify token in Meta WhatsApp webhook settings."
     : "This URL is local only. Meta cannot reach it until you set PUBLIC_BASE_URL to an ngrok, Cloudflare Tunnel, or deployed HTTPS URL.";

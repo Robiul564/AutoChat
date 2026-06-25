@@ -24,7 +24,7 @@ services:
       - key: WEBHOOK_VERIFY_TOKEN
         generateValue: true
       - key: WHATSAPP_SEND_MODE
-        value: mock
+        value: auto
       - key: WHATSAPP_GRAPH_API_URL
         value: https://graph.facebook.com/v20.0
       - key: AI_MODEL_PROVIDER

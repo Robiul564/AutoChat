@@ -15,9 +15,7 @@ Database tables are created automatically when the app starts.
    - `autochat` web service
    - `linaraman-db` Postgres database
 5. The deploy is pinned to Python `3.11.11` with `.python-version` and `PYTHON_VERSION`.
-6. Keep these environment values:
-   - `WHATSAPP_SEND_MODE=mock`
-   - `AI_MODEL_PROVIDER=mock`
+6. Keep `AI_MODEL_PROVIDER=mock` until you add an OpenAI key. Use `WHATSAPP_SEND_MODE=auto` so connected WhatsApp accounts send live with their saved Cloud API token.
 7. After the first deploy, open the Render service URL.
 8. The Blueprint defaults to:
    - `PUBLIC_BASE_URL=https://autochat.onrender.com`
