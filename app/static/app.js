@@ -53,12 +53,27 @@ function setWebhookPlaceholder(message) {
 }
 
 function renderWebhookSetup(setup) {
-  $("#webhookCallback").textContent = setup.callback_url;
+  const callbackUrl = callbackUrlForCurrentOrigin(setup.callback_url);
+  $("#webhookCallback").textContent = callbackUrl;
   $("#webhookToken").textContent = setup.verify_token;
   $("#whatsappSendMode").textContent = setup.send_mode;
   $("#webhookNotice").textContent = setup.is_public_url
     ? "Use this callback URL and verify token in Meta WhatsApp webhook settings."
     : "This URL is local only. Meta cannot reach it until you set PUBLIC_BASE_URL to an ngrok, Cloudflare Tunnel, or deployed HTTPS URL.";
+}
+
+function callbackUrlForCurrentOrigin(callbackUrl) {
+  try {
+    const url = new URL(callbackUrl, window.location.origin);
+    const current = new URL(window.location.origin);
+    if (current.protocol === "https:" && !["localhost", "127.0.0.1"].includes(current.hostname)) {
+      url.protocol = current.protocol;
+      url.host = current.host;
+    }
+    return url.toString();
+  } catch {
+    return callbackUrl;
+  }
 }
 
 async function runUiAction(fn) {

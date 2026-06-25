@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 @router.get("")
+@router.get("/")
 def verify_webhook(
     hub_mode: str | None = Query(default=None, alias="hub.mode"),
     hub_verify_token: str | None = Query(default=None, alias="hub.verify_token"),
@@ -39,6 +40,7 @@ def verify_webhook(
 
 
 @router.get("/business/{business_id}")
+@router.get("/business/{business_id}/")
 def verify_business_webhook(
     business_id: int,
     hub_mode: str | None = Query(default=None, alias="hub.mode"),
@@ -63,6 +65,7 @@ def verify_business_webhook(
 
 
 @router.post("", response_model=schemas.WebhookAccepted)
+@router.post("/", response_model=schemas.WebhookAccepted)
 async def receive_webhook(request: Request, db: Session = Depends(get_db), _: None = Depends(verify_meta_signature)):
     payload = await request.json()
     accepted = 0
@@ -73,6 +76,7 @@ async def receive_webhook(request: Request, db: Session = Depends(get_db), _: No
 
 
 @router.post("/business/{business_id}", response_model=schemas.WebhookAccepted)
+@router.post("/business/{business_id}/", response_model=schemas.WebhookAccepted)
 async def receive_business_webhook(business_id: int, request: Request, db: Session = Depends(get_db), _: None = Depends(verify_meta_signature)):
     payload = await request.json()
     accepted = 0
