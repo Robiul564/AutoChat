@@ -12,7 +12,7 @@ Database tables are created automatically when the app starts.
 2. Go to Render Dashboard.
 3. Create a new Blueprint from the repository.
 4. Render will read `render.yaml` and create:
-   - `linaraman` web service
+   - `autochat` web service
    - `linaraman-db` Postgres database
 5. The deploy is pinned to Python `3.11.11` with `.python-version` and `PYTHON_VERSION`.
 6. Keep these environment values:
@@ -20,7 +20,7 @@ Database tables are created automatically when the app starts.
    - `AI_MODEL_PROVIDER=mock`
 7. After the first deploy, open the Render service URL.
 8. Set `PUBLIC_BASE_URL` to that Render URL, for example:
-   - `https://linaraman.onrender.com`
+   - `https://autochat.onrender.com`
 9. Set:
    - `ALLOWED_ORIGINS=https://YOUR-RENDER-SERVICE.onrender.com`
    - `ALLOWED_HOSTS=YOUR-RENDER-SERVICE.onrender.com`
