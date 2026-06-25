@@ -138,6 +138,23 @@ async function loadInbox() {
   }
 }
 
+async function refreshInbox() {
+  const button = $("#refreshInbox");
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = "Refreshing...";
+  try {
+    await loadInbox();
+    if (state.conversationId) {
+      await openConversation(state.conversationId);
+    }
+    toast("Inbox refreshed");
+  } finally {
+    button.disabled = false;
+    button.textContent = originalText;
+  }
+}
+
 async function loadWhatsAppSetup() {
   state.businessId = selectedBusinessId() || state.businessId;
   if (!state.businessId) {
@@ -450,7 +467,7 @@ $("#replyForm").addEventListener("submit", async (event) => {
 });
 
 $("#simulateWebhook").addEventListener("click", simulateWebhook);
-$("#refreshInbox").addEventListener("click", loadInbox);
+$("#refreshInbox").addEventListener("click", () => runUiAction(refreshInbox));
 $("#refreshWebhookSetup").addEventListener("click", () => runUiAction(refreshWebhookSetup));
 $("#refreshOnboarding").addEventListener("click", () => runUiAction(loadBotBehavior));
 $("#loadAnalytics").addEventListener("click", async () => {
