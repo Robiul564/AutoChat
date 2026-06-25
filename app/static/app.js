@@ -124,14 +124,16 @@ async function loadInbox() {
 }
 
 async function loadWhatsAppSetup() {
-  const setup = await api("/api/platform/webhook-setup");
-  renderWebhookSetup(setup);
   state.businessId = selectedBusinessId() || state.businessId;
   if (!state.businessId) {
+    const setup = await api("/api/platform/webhook-setup");
+    renderWebhookSetup(setup);
     $("#whatsappAccounts").innerHTML = `<div class="mini-item"><span>Select a business to show connected WhatsApp accounts.</span></div>`;
     return;
   }
   $("#businessSelect").value = state.businessId;
+  const setup = await api(`/api/businesses/${state.businessId}/whatsapp/accounts/webhook-setup`);
+  renderWebhookSetup(setup);
   let accounts;
   try {
     accounts = await api(`/api/businesses/${state.businessId}/whatsapp/accounts`);

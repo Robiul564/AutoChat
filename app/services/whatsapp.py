@@ -1,4 +1,7 @@
+import base64
 from datetime import datetime
+import hashlib
+import hmac
 from typing import Any
 from uuid import uuid4
 
@@ -12,6 +15,12 @@ from app.core.config import settings
 from app.core.security import unwrap_secret
 from app.services.audit import audit
 from app.services.secrets import rotate_secret, store_secret
+
+
+def webhook_verify_token_for_business(business_id: int) -> str:
+    digest = hmac.new(settings.app_secret.encode(), f"whatsapp-webhook:{business_id}".encode(), hashlib.sha256).digest()
+    token = base64.urlsafe_b64encode(digest).decode().rstrip("=")
+    return f"biz_{business_id}_{token}"
 
 
 def save_account(db: Session, business_id: int, payload: schemas.WhatsAppAccountCreate) -> models.WhatsAppAccount:

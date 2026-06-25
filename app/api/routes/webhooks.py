@@ -38,6 +38,30 @@ def verify_webhook(
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Webhook challenge rejected")
 
 
+@router.get("/business/{business_id}")
+def verify_business_webhook(
+    business_id: int,
+    hub_mode: str | None = Query(default=None, alias="hub.mode"),
+    hub_verify_token: str | None = Query(default=None, alias="hub.verify_token"),
+    hub_challenge: str | None = Query(default=None, alias="hub.challenge"),
+    db: Session = Depends(get_db),
+):
+    mode = (hub_mode or "").strip()
+    verify_token = (hub_verify_token or "").strip()
+    challenge = (hub_challenge or "").strip()
+    if mode == "subscribe" and challenge and verify_token_matches(db, verify_token, business_id=business_id):
+        return Response(content=challenge, media_type="text/plain")
+    logger.warning(
+        "Meta business webhook challenge rejected: business_id=%s mode=%r has_token=%s has_challenge=%s token_length=%s",
+        business_id,
+        mode,
+        bool(verify_token),
+        bool(challenge),
+        len(verify_token),
+    )
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Webhook challenge rejected")
+
+
 @router.post("", response_model=schemas.WebhookAccepted)
 async def receive_webhook(request: Request, db: Session = Depends(get_db), _: None = Depends(verify_meta_signature)):
     payload = await request.json()
@@ -48,18 +72,32 @@ async def receive_webhook(request: Request, db: Session = Depends(get_db), _: No
     return {"accepted": True, "events": accepted}
 
 
-def verify_token_matches(db: Session, verify_token: str) -> bool:
+@router.post("/business/{business_id}", response_model=schemas.WebhookAccepted)
+async def receive_business_webhook(business_id: int, request: Request, db: Session = Depends(get_db), _: None = Depends(verify_meta_signature)):
+    payload = await request.json()
+    accepted = 0
+    for item in extract_events(payload, db, business_id=business_id):
+        await event_queue.publish(item)
+        accepted += 1
+    return {"accepted": True, "events": accepted}
+
+
+def verify_token_matches(db: Session, verify_token: str, business_id: int | None = None) -> bool:
     if not verify_token:
         return False
+    if business_id is not None and hmac.compare_digest(verify_token, whatsapp.webhook_verify_token_for_business(business_id)):
+        return True
     expected = settings.webhook_verify_token.strip()
     if expected and hmac.compare_digest(verify_token, expected):
         return True
-    secrets = (
+    query = (
         db.query(models.Secret)
         .join(models.WhatsAppAccount, models.WhatsAppAccount.webhook_verify_token_secret_id == models.Secret.id)
         .filter(models.Secret.name == "whatsapp_verify_token")
-        .all()
     )
+    if business_id is not None:
+        query = query.filter(models.WhatsAppAccount.business_id == business_id)
+    secrets = query.all()
     for secret in secrets:
         try:
             account_token = unwrap_secret(secret.encrypted_value).strip()
@@ -71,7 +109,7 @@ def verify_token_matches(db: Session, verify_token: str) -> bool:
     return False
 
 
-def extract_events(payload: dict[str, Any], db: Session) -> list[Event]:
+def extract_events(payload: dict[str, Any], db: Session, business_id: int | None = None) -> list[Event]:
     events: list[Event] = []
     for entry in payload.get("entry", []):
         waba_id = str(entry.get("id")) if entry.get("id") else None
@@ -79,6 +117,9 @@ def extract_events(payload: dict[str, Any], db: Session) -> list[Event]:
             value = change.get("value", {})
             account = whatsapp.resolve_tenant(db, value.get("metadata", {}), waba_id=waba_id)
             if not account:
+                continue
+            if business_id is not None and account.business_id != business_id:
+                logger.warning("Ignoring webhook event for business %s on business-specific endpoint %s", account.business_id, business_id)
                 continue
             contacts = {contact.get("wa_id"): contact.get("profile", {}).get("name") for contact in value.get("contacts", [])}
             for message in value.get("messages", []):

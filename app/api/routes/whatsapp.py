@@ -25,10 +25,11 @@ def list_accounts(business_id: int, db: Session = Depends(get_db), actor_email: 
 def webhook_setup(business_id: int, request: Request, db: Session = Depends(get_db), actor_email: str = Depends(get_actor_email)):
     require_business_access(db, business_id, actor_email)
     public_base_url = settings.public_base_url.rstrip("/")
-    callback_url = f"{public_base_url}/webhooks/meta/whatsapp" if public_base_url else str(request.url_for("receive_webhook"))
+    callback_path = f"/webhooks/meta/whatsapp/business/{business_id}"
+    callback_url = f"{public_base_url}{callback_path}" if public_base_url else str(request.url_for("receive_business_webhook", business_id=business_id))
     return {
         "callback_url": callback_url,
-        "verify_token": settings.webhook_verify_token,
+        "verify_token": whatsapp.webhook_verify_token_for_business(business_id),
         "send_mode": settings.whatsapp_send_mode,
         "graph_api_url": settings.whatsapp_graph_api_url,
         "is_public_url": bool(public_base_url),
