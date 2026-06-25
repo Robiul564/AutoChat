@@ -23,7 +23,7 @@ def version():
         "app_version": APP_VERSION,
         "send_error_format": SEND_ERROR_FORMAT,
         "whatsapp_send_mode": settings.whatsapp_send_mode,
-        "environment": settings.environment,
+        "environment": settings.app_env,
     }
 
 
