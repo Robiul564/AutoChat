@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, Request
 from app import schemas
 from app.core.config import settings
 from app.core.security import get_actor_email
+from app.core.url import public_base_url_from_request
 
 router = APIRouter(prefix="/api/platform", tags=["platform"])
 
@@ -17,12 +18,12 @@ def session(actor_email: str = Depends(get_actor_email)):
 
 @router.get("/webhook-setup", response_model=schemas.WhatsAppWebhookSetupOut)
 def webhook_setup(request: Request):
-    public_base_url = settings.public_base_url.rstrip("/")
-    callback_url = f"{public_base_url}/webhooks/meta/whatsapp" if public_base_url else str(request.url_for("receive_webhook"))
+    public_base_url = public_base_url_from_request(request)
+    callback_url = f"{public_base_url}/webhooks/meta/whatsapp"
     return {
         "callback_url": callback_url,
         "verify_token": settings.webhook_verify_token,
         "send_mode": settings.whatsapp_send_mode,
         "graph_api_url": settings.whatsapp_graph_api_url,
-        "is_public_url": bool(public_base_url),
+        "is_public_url": public_base_url.startswith("https://"),
     }
