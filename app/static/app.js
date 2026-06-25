@@ -25,7 +25,11 @@ async function api(path, options = {}) {
       data = { detail: text };
     }
   }
-  if (!res.ok) throw new Error(data?.detail || res.statusText || "Request failed");
+  if (!res.ok) {
+    const detail = data?.detail;
+    const message = typeof detail === "string" ? detail : detail ? JSON.stringify(detail) : res.statusText || "Request failed";
+    throw new Error(message);
+  }
   return data;
 }
 
@@ -97,21 +101,30 @@ async function loadSession() {
 }
 
 async function loadRuntimeVersion() {
-  const version = await api("/api/platform/version");
-  const label = `${version.app_version} · ${version.send_error_format} · WhatsApp ${version.whatsapp_send_mode}`;
-  $("#runtimeVersion").textContent = `Backend ${label}`;
+  try {
+    const version = await api("/api/platform/version");
+    const label = `${version.app_version} · ${version.send_error_format} · WhatsApp ${version.whatsapp_send_mode}`;
+    $("#runtimeVersion").textContent = `Backend ${label}`;
+  } catch {
+    $("#runtimeVersion").textContent = "Backend version unavailable";
+  }
 }
 
 async function loadBusinesses() {
   const businesses = await api("/api/businesses");
   const select = $("#businessSelect");
-  select.innerHTML = businesses.map((b) => `<option value="${b.id}">#${b.id} ${b.name} (${b.status})</option>`).join("");
+  if (!businesses.length) {
+    state.businessId = null;
+    select.innerHTML = `<option value="">No active business found</option>`;
+    setWebhookPlaceholder("Create a business first");
+    return businesses;
+  }
+  select.innerHTML = businesses.map((b) => `<option value="${b.id}">#${b.id} ${escapeHtml(b.name)} (${escapeHtml(b.status)})</option>`).join("");
   const hasSelectedBusiness = businesses.some((business) => business.id === Number(state.businessId));
   if (businesses.length && (!state.businessId || !hasSelectedBusiness)) {
     state.businessId = businesses[0].id;
   }
   if (state.businessId) select.value = state.businessId;
-  if (!businesses.length) setWebhookPlaceholder("Create a business first");
   return businesses;
 }
 
@@ -547,7 +560,9 @@ $("#loadAnalytics").addEventListener("click", async () => {
 setWebhookPlaceholder("Select a business");
 
 loadSession()
-  .then(loadRuntimeVersion)
+  .then(async () => {
+    await loadRuntimeVersion();
+  })
   .then(loadBusinesses)
   .then(async () => {
     await loadWhatsAppSetup();
