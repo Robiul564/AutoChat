@@ -230,5 +230,27 @@ def send_text_live(db: Session, account: models.WhatsAppAccount, customer_id: in
             data = response.json()
             logger.info("WhatsApp live send accepted by Meta for phone_number_id=%s customer=%s", account.phone_number_id, customer.whatsapp_user_id)
             return data
+    except httpx.HTTPStatusError as exc:
+        response = exc.response
+        try:
+            error_body: Any = response.json()
+        except ValueError:
+            error_body = response.text
+        detail = {
+            "message": "WhatsApp send failed",
+            "status_code": response.status_code,
+            "graph_url": url,
+            "phone_number_id": account.phone_number_id,
+            "to": customer.whatsapp_user_id,
+            "meta_error": error_body,
+        }
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=detail) from exc
     except httpx.HTTPError as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"WhatsApp send failed: {exc}") from exc
+        detail = {
+            "message": "WhatsApp send failed",
+            "graph_url": url,
+            "phone_number_id": account.phone_number_id,
+            "to": customer.whatsapp_user_id,
+            "error": str(exc),
+        }
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=detail) from exc

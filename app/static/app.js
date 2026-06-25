@@ -243,7 +243,8 @@ function messageStatusText(message) {
 function messageErrorText(message) {
   const error = message.provider_payload_json?.error || message.provider_payload_json?.errors?.[0];
   if (!error) return "";
-  return `<div class="message-error">${escapeHtml(typeof error === "string" ? error : JSON.stringify(error))}</div>`;
+  const text = typeof error === "string" ? error : JSON.stringify(error, null, 2);
+  return `<div class="message-error">${escapeHtml(text)}</div>`;
 }
 
 function messageDebugDetails(message) {
