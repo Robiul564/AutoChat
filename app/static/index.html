@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI WhatsApp SaaS</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>AI WhatsApp SaaS</h1>
+        <p>Tenant admin, inbox, knowledge, integrations, and analytics.</p>
+      </div>
+      <label class="actor">
+        <span>Signed in as</span>
+        <input id="actorEmail" type="email" value="owner@example.com" autocomplete="email" />
+      </label>
+      <label class="actor">
+        <span>Admin key</span>
+        <input id="adminKey" type="password" placeholder="Required in production" autocomplete="off" />
+      </label>
+    </header>
+
+    <main class="layout">
+      <aside class="sidebar">
+        <section>
+          <h2>Business</h2>
+          <form id="businessForm" class="stack platform-only">
+            <label class="field">
+              <span>Business name</span>
+              <input name="name" placeholder="Demo Clinic" autocomplete="organization" required />
+            </label>
+            <label class="field">
+              <span>Industry</span>
+              <input name="industry" placeholder="Healthcare, restaurant, ecommerce" />
+            </label>
+            <div class="split">
+              <label class="field">
+                <span>Timezone</span>
+                <input name="timezone" value="Asia/Dhaka" placeholder="Asia/Dhaka" />
+              </label>
+              <label class="field">
+                <span>Locale</span>
+                <input name="locale" value="en" placeholder="en or bn-BD" />
+              </label>
+            </div>
+            <button type="submit">Create Business</button>
+          </form>
+          <label class="field">
+            <span>Active business</span>
+            <select id="businessSelect"></select>
+          </label>
+        </section>
+
+        <section class="platform-only">
+          <h2>WhatsApp</h2>
+          <div class="webhook-card">
+            <div class="webhook-row">
+              <span>Callback URL</span>
+              <code id="webhookCallback">http://127.0.0.1:8000/webhooks/meta/whatsapp</code>
+            </div>
+            <div class="webhook-row">
+              <span>Verify token</span>
+              <code id="webhookToken">platform-dev-token</code>
+            </div>
+            <div class="webhook-row">
+              <span>Send mode</span>
+              <code id="whatsappSendMode">mock</code>
+            </div>
+            <div id="webhookNotice" class="webhook-notice">This is the local webhook URL. Meta needs a public HTTPS URL later.</div>
+            <button id="refreshWebhookSetup" type="button">Load webhook</button>
+          </div>
+          <div id="whatsappAccounts" class="mini-list"></div>
+          <form id="whatsappForm" class="stack">
+            <label class="field">
+              <span>Meta App ID</span>
+              <input name="app_id" placeholder="123456789012345" autocomplete="off" required />
+            </label>
+            <label class="field">
+              <span>Meta App Secret</span>
+              <input name="app_secret" type="password" placeholder="Paste app secret" autocomplete="new-password" required />
+            </label>
+            <label class="field">
+              <span>Cloud API access token</span>
+              <input name="access_token" type="password" placeholder="EAAG..." autocomplete="new-password" required />
+            </label>
+            <label class="field">
+              <span>Phone Number ID</span>
+              <input name="phone_number_id" placeholder="Phone number ID from Meta" autocomplete="off" required />
+            </label>
+            <label class="field">
+              <span>WhatsApp Business Account ID</span>
+              <input name="waba_id" placeholder="Optional WABA ID" autocomplete="off" />
+            </label>
+            <label class="field">
+              <span>Display phone number</span>
+              <input name="display_phone_number" placeholder="+8801000000000" autocomplete="tel" />
+            </label>
+            <button type="submit">Connect WhatsApp</button>
+          </form>
+        </section>
+      </aside>
+
+      <section class="panel">
+        <nav class="tabs" aria-label="Sections">
+          <button class="tab active" data-view="inbox">Inbox</button>
+          <button class="tab" data-view="knowledge">Knowledge</button>
+          <button class="tab platform-only" data-view="tools">Tools</button>
+          <button class="tab" data-view="settings">Bot Behavior</button>
+          <button class="tab" data-view="analytics">Analytics</button>
+        </nav>
+
+        <section id="inbox" class="view active">
+          <div class="toolbar">
+            <button id="simulateWebhook">Simulate inbound</button>
+            <button id="refreshInbox">Refresh</button>
+          </div>
+          <div class="inbox-grid">
+            <div>
+              <h2>Conversations</h2>
+              <div id="conversationList" class="list"></div>
+            </div>
+            <div>
+              <h2>Messages</h2>
+              <div id="messageList" class="messages"></div>
+              <form id="replyForm" class="reply">
+                <label class="sr-only" for="replyBody">Reply message</label>
+                <input id="replyBody" name="body" placeholder="Type a reply to the customer" required />
+                <button type="submit">Send</button>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <section id="knowledge" class="view">
+          <form id="knowledgeForm" class="stack">
+            <label class="field">
+              <span>Knowledge title</span>
+              <input name="title" placeholder="Opening hours FAQ" required />
+            </label>
+            <label class="field">
+              <span>Knowledge content</span>
+              <textarea name="content" rows="8" placeholder="Paste FAQ, service details, policies, pricing, or business instructions" required></textarea>
+            </label>
+            <button type="submit">Add knowledge</button>
+          </form>
+          <form id="searchForm" class="search">
+            <label class="sr-only" for="knowledgeQuery">Knowledge search query</label>
+            <input id="knowledgeQuery" name="query" placeholder="Search the saved knowledge" required />
+            <button type="submit">Search</button>
+          </form>
+          <div id="knowledgeResults" class="list"></div>
+        </section>
+
+        <section id="tools" class="view platform-only">
+          <div class="toolbar">
+            <button id="loadTools">Load catalog</button>
+            <button id="enableCalendar">Enable calendar</button>
+          </div>
+          <div id="toolList" class="list"></div>
+        </section>
+
+        <section id="settings" class="view">
+          <div class="setup-panel">
+            <div>
+              <h2>WhatsApp Onboarding</h2>
+              <p>Ask the business owner to send <strong>setup</strong> to the connected WhatsApp number.</p>
+            </div>
+            <button id="refreshOnboarding" type="button">Refresh setup</button>
+          </div>
+          <div id="onboardingStatus" class="status-box"></div>
+          <pre id="workflowConfig" class="config-output"></pre>
+
+          <form id="settingsForm" class="stack">
+            <label class="field">
+              <span>Tone</span>
+              <input name="tone" placeholder="friendly, professional, concise" />
+            </label>
+            <label class="field">
+              <span>Bot instructions</span>
+              <textarea name="system_prompt" rows="5" placeholder="Tell the assistant how to answer customers for this business"></textarea>
+            </label>
+            <label class="field">
+              <span>Fallback message</span>
+              <textarea name="fallback_message" rows="3" placeholder="Message to send when the bot is unsure"></textarea>
+            </label>
+            <button type="submit">Save behavior</button>
+          </form>
+        </section>
+
+        <section id="analytics" class="view">
+          <button id="loadAnalytics">Refresh analytics</button>
+          <pre id="analyticsOutput"></pre>
+        </section>
+      </section>
+    </main>
+
+    <div id="toast" role="status"></div>
+    <script src="/app.js?v=20260625-webhook-setup"></script>
+  </body>
+</html>

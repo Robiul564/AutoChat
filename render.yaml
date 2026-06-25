@@ -1,0 +1,50 @@
+services:
+  - type: web
+    name: linaraman
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    preDeployCommand: python scripts/init_db.py
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/platform/session
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: linaraman-db
+          property: connectionString
+      - key: APP_ENV
+        value: production
+      - key: APP_SECRET
+        generateValue: true
+      - key: AUTH_MODE
+        value: admin_key
+      - key: ADMIN_API_KEY
+        generateValue: true
+      - key: WEBHOOK_VERIFY_TOKEN
+        generateValue: true
+      - key: WHATSAPP_SEND_MODE
+        value: mock
+      - key: WHATSAPP_GRAPH_API_URL
+        value: https://graph.facebook.com/v20.0
+      - key: AI_MODEL_PROVIDER
+        value: mock
+      - key: AI_MODEL_NAME
+        value: local-mock
+      - key: PLATFORM_ADMIN_EMAILS
+        value: owner@example.com
+      - key: ENABLE_DOCS
+        value: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: ALLOWED_HOSTS
+        sync: false
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: META_APP_SECRET
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+
+databases:
+  - name: linaraman-db
+    plan: free
