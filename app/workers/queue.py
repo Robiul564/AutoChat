@@ -1,9 +1,12 @@
 import asyncio
 from dataclasses import dataclass
+import logging
 from typing import Any
 
 from app.core.db import SessionLocal
 from app.services import ai, conversation, onboarding
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -35,6 +38,8 @@ class EventQueue:
             event = await self.queue.get()
             try:
                 self.handle(event)
+            except Exception:
+                logger.exception("Failed to handle event %s for business %s", event.name, event.business_id)
             finally:
                 self.queue.task_done()
 
@@ -43,9 +48,13 @@ class EventQueue:
         try:
             if event.name == "message.inbound.created":
                 message = conversation.add_inbound_message(db, event.business_id, event.payload)
+                logger.info("Inbound WhatsApp message saved: business=%s conversation=%s message=%s", event.business_id, message.conversation_id, message.id)
                 if onboarding.handle_inbound(db, message):
+                    logger.info("Inbound WhatsApp message handled by onboarding: message=%s", message.id)
                     return
-                ai.respond_to_inbound(db, message)
+                reply = ai.respond_to_inbound(db, message)
+                if reply:
+                    logger.info("AI WhatsApp reply saved: business=%s conversation=%s message=%s status=%s", reply.business_id, reply.conversation_id, reply.id, reply.status)
             if event.name == "message.status.updated":
                 conversation.update_status_from_provider(db, event.business_id, event.payload)
         finally:

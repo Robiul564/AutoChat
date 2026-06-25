@@ -2,6 +2,7 @@ import base64
 from datetime import datetime
 import hashlib
 import hmac
+import logging
 from typing import Any
 from uuid import uuid4
 
@@ -15,6 +16,8 @@ from app.core.config import settings
 from app.core.security import unwrap_secret
 from app.services.audit import audit
 from app.services.secrets import rotate_secret, store_secret
+
+logger = logging.getLogger(__name__)
 
 
 def webhook_verify_token_for_business(business_id: int) -> str:
@@ -101,6 +104,18 @@ def resolve_tenant(db: Session, metadata: dict[str, Any], waba_id: str | None = 
     return None
 
 
+def resolve_business_webhook_account(db: Session, business_id: int) -> models.WhatsAppAccount | None:
+    return (
+        db.query(models.WhatsAppAccount)
+        .filter(
+            models.WhatsAppAccount.business_id == business_id,
+            models.WhatsAppAccount.status.in_(["connected", "reauth_required"]),
+        )
+        .order_by(models.WhatsAppAccount.created_at.desc())
+        .first()
+    )
+
+
 def send_text(db: Session, business_id: int, conversation_id: int, customer_id: int, body: str, ai_generated: bool = False) -> models.Message:
     account = db.query(models.WhatsAppAccount).filter(models.WhatsAppAccount.business_id == business_id, models.WhatsAppAccount.status == "connected").first()
     if not account:
@@ -123,6 +138,9 @@ def send_text(db: Session, business_id: int, conversation_id: int, customer_id: 
             provider_payload = {"error": exc.detail, "phone_number_id": account.phone_number_id}
             provider_status = "failed"
             message_status = "failed"
+            logger.warning("WhatsApp live send failed for business=%s phone_number_id=%s error=%s", business_id, account.phone_number_id, exc.detail)
+    else:
+        logger.info("WhatsApp reply saved in mock mode for business=%s phone_number_id=%s", business_id, account.phone_number_id)
 
     message = models.Message(
         business_id=business_id,
@@ -167,6 +185,8 @@ def send_text_live(db: Session, account: models.WhatsAppAccount, customer_id: in
         with httpx.Client(timeout=20) as client:
             response = client.post(url, headers={"Authorization": f"Bearer {token}"}, json=payload)
             response.raise_for_status()
-            return response.json()
+            data = response.json()
+            logger.info("WhatsApp live send accepted by Meta for phone_number_id=%s customer=%s", account.phone_number_id, customer.whatsapp_user_id)
+            return data
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"WhatsApp send failed: {exc}") from exc

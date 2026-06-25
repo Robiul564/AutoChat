@@ -72,6 +72,7 @@ async def receive_webhook(request: Request, db: Session = Depends(get_db), _: No
     for item in extract_events(payload, db):
         await event_queue.publish(item)
         accepted += 1
+    logger.info("Meta webhook accepted %s event(s) on platform endpoint", accepted)
     return {"accepted": True, "events": accepted}
 
 
@@ -83,6 +84,7 @@ async def receive_business_webhook(business_id: int, request: Request, db: Sessi
     for item in extract_events(payload, db, business_id=business_id):
         await event_queue.publish(item)
         accepted += 1
+    logger.info("Meta webhook accepted %s event(s) on business endpoint %s", accepted, business_id)
     return {"accepted": True, "events": accepted}
 
 
@@ -119,8 +121,17 @@ def extract_events(payload: dict[str, Any], db: Session, business_id: int | None
         waba_id = str(entry.get("id")) if entry.get("id") else None
         for change in entry.get("changes", []):
             value = change.get("value", {})
-            account = whatsapp.resolve_tenant(db, value.get("metadata", {}), waba_id=waba_id)
+            metadata = value.get("metadata", {})
+            account = whatsapp.resolve_tenant(db, metadata, waba_id=waba_id)
+            if not account and business_id is not None:
+                account = whatsapp.resolve_business_webhook_account(db, business_id)
             if not account:
+                logger.warning(
+                    "Ignoring Meta webhook event because no WhatsApp account matched metadata phone_number_id=%r waba_id=%r business_endpoint=%r",
+                    metadata.get("phone_number_id"),
+                    waba_id,
+                    business_id,
+                )
                 continue
             if business_id is not None and account.business_id != business_id:
                 logger.warning("Ignoring webhook event for business %s on business-specific endpoint %s", account.business_id, business_id)
