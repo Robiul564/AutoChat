@@ -4,6 +4,8 @@ This deploy is for staging/testing, not permanent production.
 
 Render free web services are suitable for testing, but they can spin down when idle. Render free web service filesystems are ephemeral, so use the free Postgres database in `render.yaml` instead of SQLite.
 
+Database tables are created automatically when the app starts.
+
 ## Steps
 
 1. Push this project to a GitHub repository.
