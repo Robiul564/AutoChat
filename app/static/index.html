@@ -11,6 +11,7 @@
       <div>
         <h1>AI WhatsApp SaaS</h1>
         <p>Tenant admin, inbox, knowledge, integrations, and analytics.</p>
+        <p id="runtimeVersion" class="runtime-version">Checking backend version...</p>
       </div>
       <label class="actor">
         <span>Signed in as</span>
@@ -97,7 +98,10 @@
               <span>Display phone number</span>
               <input name="display_phone_number" placeholder="+8801000000000" autocomplete="tel" />
             </label>
-            <button type="submit">Connect WhatsApp</button>
+            <div class="form-actions">
+              <button id="whatsappSubmit" type="submit">Connect WhatsApp</button>
+              <button id="cancelWhatsAppEdit" type="button" class="secondary hidden">Cancel edit</button>
+            </div>
           </form>
         </section>
       </aside>
@@ -198,6 +202,6 @@
     </main>
 
     <div id="toast" role="status"></div>
-    <script src="/app.js?v=20260625-meta-error-body"></script>
+    <script src="/app.js?v=20260625-edit-whatsapp"></script>
   </body>
 </html>

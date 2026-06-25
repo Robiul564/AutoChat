@@ -45,6 +45,17 @@ class WhatsAppAccountCreate(BaseModel):
     token_expires_at: datetime | None = None
 
 
+class WhatsAppAccountUpdate(BaseModel):
+    app_id: str | None = None
+    app_secret: str | None = None
+    access_token: str | None = None
+    phone_number_id: str | None = None
+    waba_id: str | None = None
+    display_phone_number: str | None = None
+    webhook_verify_token: str | None = None
+    token_expires_at: datetime | None = None
+
+
 class WhatsAppAccountOut(BaseModel):
     id: int
     business_id: int
