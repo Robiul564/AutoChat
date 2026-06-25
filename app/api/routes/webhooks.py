@@ -1,16 +1,19 @@
+import hmac
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.orm import Session
 
-from app import schemas
+from app import models, schemas
 from app.core.config import settings
 from app.core.db import get_db
-from app.core.security import verify_meta_signature
+from app.core.security import unwrap_secret, verify_meta_signature
 from app.services import whatsapp
 from app.workers.queue import Event, event_queue
 
 router = APIRouter(prefix="/webhooks/meta/whatsapp", tags=["webhooks"])
+logger = logging.getLogger(__name__)
 
 
 @router.get("")
@@ -18,9 +21,20 @@ def verify_webhook(
     hub_mode: str | None = Query(default=None, alias="hub.mode"),
     hub_verify_token: str | None = Query(default=None, alias="hub.verify_token"),
     hub_challenge: str | None = Query(default=None, alias="hub.challenge"),
+    db: Session = Depends(get_db),
 ):
-    if hub_mode == "subscribe" and hub_verify_token == settings.webhook_verify_token and hub_challenge:
-        return Response(content=hub_challenge, media_type="text/plain")
+    mode = (hub_mode or "").strip()
+    verify_token = (hub_verify_token or "").strip()
+    challenge = (hub_challenge or "").strip()
+    if mode == "subscribe" and challenge and verify_token_matches(db, verify_token):
+        return Response(content=challenge, media_type="text/plain")
+    logger.warning(
+        "Meta webhook challenge rejected: mode=%r has_token=%s has_challenge=%s token_length=%s",
+        mode,
+        bool(verify_token),
+        bool(challenge),
+        len(verify_token),
+    )
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Webhook challenge rejected")
 
 
@@ -32,6 +46,29 @@ async def receive_webhook(request: Request, db: Session = Depends(get_db), _: No
         await event_queue.publish(item)
         accepted += 1
     return {"accepted": True, "events": accepted}
+
+
+def verify_token_matches(db: Session, verify_token: str) -> bool:
+    if not verify_token:
+        return False
+    expected = settings.webhook_verify_token.strip()
+    if expected and hmac.compare_digest(verify_token, expected):
+        return True
+    secrets = (
+        db.query(models.Secret)
+        .join(models.WhatsAppAccount, models.WhatsAppAccount.webhook_verify_token_secret_id == models.Secret.id)
+        .filter(models.Secret.name == "whatsapp_verify_token")
+        .all()
+    )
+    for secret in secrets:
+        try:
+            account_token = unwrap_secret(secret.encrypted_value).strip()
+        except Exception:
+            logger.exception("Could not unwrap WhatsApp webhook verify token secret %s", secret.id)
+            continue
+        if account_token and hmac.compare_digest(verify_token, account_token):
+            return True
+    return False
 
 
 def extract_events(payload: dict[str, Any], db: Session) -> list[Event]:
