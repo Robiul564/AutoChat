@@ -121,8 +121,8 @@ def send_text(db: Session, business_id: int, conversation_id: int, customer_id: 
     if not account:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No connected WhatsApp account for business")
     provider_id = f"mock-{account.phone_number_id}-{uuid4().hex[:12]}"
-    provider_status = "sent_to_provider"
-    message_status = "sent_to_provider"
+    provider_status = "mock_saved"
+    message_status = "mock_saved"
     provider_payload = {"mock": True, "phone_number_id": account.phone_number_id}
 
     if settings.whatsapp_send_mode.lower() == "live":

@@ -202,11 +202,27 @@ async function openConversation(id) {
   $("#messageList").innerHTML = detail.messages
     .map(
       (m) => `<div class="message ${m.direction}">
-        <div class="meta">${m.direction} · ${m.status}${m.ai_generated ? " · AI" : ""}</div>
+        <div class="meta">${messageStatusText(m)}</div>
         <div>${escapeHtml(m.body)}</div>
+        ${messageErrorText(m)}
       </div>`
     )
     .join("");
+}
+
+function messageStatusText(message) {
+  const parts = [message.direction, message.status];
+  if (message.ai_generated) parts.push("AI");
+  if (message.status === "mock_saved") parts.push("not sent to WhatsApp");
+  if (message.status === "sent_to_provider") parts.push("sent to Meta");
+  if (message.status === "failed") parts.push("send failed");
+  return parts.join(" · ");
+}
+
+function messageErrorText(message) {
+  const error = message.provider_payload_json?.error;
+  if (!error) return "";
+  return `<div class="message-error">${escapeHtml(typeof error === "string" ? error : JSON.stringify(error))}</div>`;
 }
 
 function escapeHtml(text) {

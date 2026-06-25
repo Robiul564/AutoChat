@@ -369,6 +369,17 @@ pre {
   font-weight: 700;
 }
 
+.message-error {
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  background: #fff1f2;
+  color: #be123c;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .reply,
 .search,
 .toolbar {

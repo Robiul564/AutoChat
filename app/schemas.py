@@ -118,6 +118,7 @@ class MessageOut(BaseModel):
     body: str
     provider_message_id: str | None
     provider_status: str | None
+    provider_payload_json: dict[str, Any]
     ai_generated: bool
     status: str
     created_at: datetime
