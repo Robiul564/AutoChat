@@ -5,7 +5,7 @@ services:
     plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
-    healthCheckPath: /api/platform/session
+    healthCheckPath: /api/health
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -36,11 +36,11 @@ services:
       - key: ENABLE_DOCS
         value: false
       - key: ALLOWED_ORIGINS
-        sync: false
+        value: https://autochat.onrender.com
       - key: ALLOWED_HOSTS
-        sync: false
+        value: autochat.onrender.com,linaraman.onrender.com,*.onrender.com
       - key: PUBLIC_BASE_URL
-        sync: false
+        value: https://autochat.onrender.com
       - key: META_APP_SECRET
         sync: false
       - key: OPENAI_API_KEY

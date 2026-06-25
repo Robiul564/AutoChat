@@ -19,18 +19,18 @@ Database tables are created automatically when the app starts.
    - `WHATSAPP_SEND_MODE=mock`
    - `AI_MODEL_PROVIDER=mock`
 7. After the first deploy, open the Render service URL.
-8. Set `PUBLIC_BASE_URL` to that Render URL, for example:
-   - `https://autochat.onrender.com`
-9. Set:
-   - `ALLOWED_ORIGINS=https://YOUR-RENDER-SERVICE.onrender.com`
-   - `ALLOWED_HOSTS=YOUR-RENDER-SERVICE.onrender.com`
+8. The Blueprint defaults to:
+   - `PUBLIC_BASE_URL=https://autochat.onrender.com`
+   - `ALLOWED_ORIGINS=https://autochat.onrender.com`
+   - `ALLOWED_HOSTS=autochat.onrender.com,linaraman.onrender.com,*.onrender.com`
+9. If Render creates a different service URL, update those three values to match it.
 10. Copy the generated `ADMIN_API_KEY` from Render environment variables. You will need it in the app's Admin key field.
 11. Redeploy.
 
 Health check:
 
 ```text
-/api/platform/session
+/api/health
 ```
 
 ## Meta WhatsApp Webhook
