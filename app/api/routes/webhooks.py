@@ -151,7 +151,14 @@ def extract_events(payload: dict[str, Any], db: Session, business_id: int | None
                             "profile_name": contacts.get(message.get("from")),
                             "type": message.get("type", "text"),
                             "body": text,
-                            "raw": message,
+                            "raw": {
+                                **message,
+                                "_metadata": {
+                                    "phone_number_id": metadata.get("phone_number_id"),
+                                    "display_phone_number": metadata.get("display_phone_number"),
+                                    "waba_id": waba_id,
+                                },
+                            },
                         },
                     )
                 )

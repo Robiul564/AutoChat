@@ -214,13 +214,16 @@ function messageStatusText(message) {
   const parts = [message.direction, message.status];
   if (message.ai_generated) parts.push("AI");
   if (message.status === "mock_saved") parts.push("not sent to WhatsApp");
-  if (message.status === "sent_to_provider") parts.push("sent to Meta");
+  if (message.status === "sent_to_provider" || message.status === "accepted_by_meta") parts.push("accepted by Meta, waiting for delivery");
+  if (message.status === "sent") parts.push("sent by WhatsApp");
+  if (message.status === "delivered") parts.push("delivered to customer");
+  if (message.status === "read") parts.push("read by customer");
   if (message.status === "failed") parts.push("send failed");
   return parts.join(" · ");
 }
 
 function messageErrorText(message) {
-  const error = message.provider_payload_json?.error;
+  const error = message.provider_payload_json?.error || message.provider_payload_json?.errors?.[0];
   if (!error) return "";
   return `<div class="message-error">${escapeHtml(typeof error === "string" ? error : JSON.stringify(error))}</div>`;
 }

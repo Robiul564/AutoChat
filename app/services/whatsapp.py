@@ -117,7 +117,7 @@ def resolve_business_webhook_account(db: Session, business_id: int) -> models.Wh
 
 
 def send_text(db: Session, business_id: int, conversation_id: int, customer_id: int, body: str, ai_generated: bool = False) -> models.Message:
-    account = db.query(models.WhatsAppAccount).filter(models.WhatsAppAccount.business_id == business_id, models.WhatsAppAccount.status == "connected").first()
+    account = resolve_reply_account(db, business_id, conversation_id)
     if not account:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No connected WhatsApp account for business")
     provider_id = f"mock-{account.phone_number_id}-{uuid4().hex[:12]}"
@@ -133,7 +133,7 @@ def send_text(db: Session, business_id: int, conversation_id: int, customer_id: 
             provider_payload = send_text_live(db, account, customer_id, body)
             provider_id = provider_payload.get("messages", [{}])[0].get("id", provider_id)
             provider_status = "sent_to_provider"
-            message_status = "sent_to_provider"
+            message_status = "accepted_by_meta"
         except HTTPException as exc:
             provider_payload = {"error": exc.detail, "phone_number_id": account.phone_number_id}
             provider_status = "failed"
@@ -164,6 +164,32 @@ def send_text(db: Session, business_id: int, conversation_id: int, customer_id: 
     db.commit()
     db.refresh(message)
     return message
+
+
+def resolve_reply_account(db: Session, business_id: int, conversation_id: int) -> models.WhatsAppAccount | None:
+    inbound = (
+        db.query(models.Message)
+        .filter(
+            models.Message.business_id == business_id,
+            models.Message.conversation_id == conversation_id,
+            models.Message.direction == "inbound",
+        )
+        .order_by(models.Message.created_at.desc())
+        .first()
+    )
+    phone_number_id = None
+    if inbound:
+        metadata = (inbound.provider_payload_json or {}).get("_metadata", {})
+        phone_number_id = metadata.get("phone_number_id")
+    query = db.query(models.WhatsAppAccount).filter(
+        models.WhatsAppAccount.business_id == business_id,
+        models.WhatsAppAccount.status == "connected",
+    )
+    if phone_number_id:
+        account = query.filter(models.WhatsAppAccount.phone_number_id == str(phone_number_id)).one_or_none()
+        if account:
+            return account
+    return query.order_by(models.WhatsAppAccount.created_at.desc()).first()
 
 
 def send_text_live(db: Session, account: models.WhatsAppAccount, customer_id: int, body: str) -> dict[str, Any]:

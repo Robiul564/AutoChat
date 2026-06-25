@@ -125,6 +125,9 @@ def update_status_from_provider(db: Session, business_id: int, payload: dict[str
     if message:
         message.provider_status = status_value
         message.status = status_value
+        message.provider_payload_json = payload
+        if payload.get("errors"):
+            message.error_code = str(payload["errors"][0].get("code", "")) if isinstance(payload["errors"], list) and payload["errors"] else None
         if status_value == "delivered":
             message.delivered_at = occurred
         if status_value == "read":
