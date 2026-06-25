@@ -439,6 +439,9 @@ async function loadBotBehavior() {
   $("#settingsForm [name=tone]").value = settings.tone || "";
   $("#settingsForm [name=system_prompt]").value = settings.system_prompt || "";
   $("#settingsForm [name=fallback_message]").value = settings.fallback_message || "";
+  $("#aiProviderStatus").textContent = settings.openai_configured
+    ? "OpenAI is configured. Replies use OpenAI with this business knowledge as context."
+    : "OpenAI key is not configured. Replies fall back to saved knowledge.";
   const session = await api(`/api/businesses/${state.businessId}/onboarding/latest`);
   if (!session) {
     $("#onboardingStatus").textContent = "No WhatsApp setup session yet.";

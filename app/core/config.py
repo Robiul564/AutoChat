@@ -30,8 +30,8 @@ class Settings:
     webhook_verify_token: str = os.getenv("WEBHOOK_VERIFY_TOKEN", "platform-dev-token")
     whatsapp_send_mode: str = os.getenv("WHATSAPP_SEND_MODE", "auto")
     whatsapp_graph_api_url: str = os.getenv("WHATSAPP_GRAPH_API_URL", "https://graph.facebook.com/v20.0")
-    ai_model_provider: str = os.getenv("AI_MODEL_PROVIDER", "mock")
-    ai_model_name: str = os.getenv("AI_MODEL_NAME", "local-mock")
+    ai_model_provider: str = os.getenv("AI_MODEL_PROVIDER", "auto")
+    ai_model_name: str = os.getenv("AI_MODEL_NAME", "gpt-5.5")
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
 
     @property

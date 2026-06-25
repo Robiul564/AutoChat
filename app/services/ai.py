@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import logging
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -6,6 +7,8 @@ from sqlalchemy.orm import Session
 from app import models
 from app.core.config import settings as app_settings
 from app.services import knowledge, tools, whatsapp
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -74,11 +77,12 @@ def build_response_plan(db: Session, inbound: models.Message) -> ResponsePlan:
         else:
             reply = "I can help with bookings, but this business has not enabled a booking tool yet."
             confidence = 0.55
-    elif settings.model_provider == "openai":
+    elif should_use_openai(settings):
         try:
             reply = generate_openai_reply(db, inbound, business, settings, hits)
             confidence = 0.82 if hits else 0.62
-        except Exception:
+        except Exception as exc:
+            logger.exception("OpenAI reply generation failed for business=%s conversation=%s", inbound.business_id, inbound.conversation_id)
             reply = fallback_reply(business, settings, hits)
             confidence = 0.45 if hits else 0.25
     elif hits:
@@ -93,6 +97,17 @@ def build_response_plan(db: Session, inbound: models.Message) -> ResponsePlan:
         confidence = 0.25
 
     return ResponsePlan(reply_text=reply, actions=actions, confidence=confidence, handoff_required=handoff)
+
+
+def should_use_openai(settings: models.AISettings) -> bool:
+    provider = (settings.model_provider or app_settings.ai_model_provider).lower()
+    if provider == "openai":
+        return True
+    if provider == "auto":
+        return bool(app_settings.openai_api_key)
+    if app_settings.is_production and app_settings.openai_api_key and provider == "mock":
+        return True
+    return False
 
 
 def fallback_reply(business: models.Business | None, settings: models.AISettings, hits: list[dict]) -> str:
@@ -169,8 +184,9 @@ Customer message:
 """.strip()
 
     client = OpenAI(api_key=app_settings.openai_api_key)
+    model_name = settings.model_name if settings.model_name != "local-mock" else app_settings.ai_model_name
     response = client.responses.create(
-        model=settings.model_name,
+        model=model_name,
         input=[
             {
                 "role": "developer",

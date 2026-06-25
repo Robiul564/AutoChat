@@ -166,6 +166,7 @@ class AISettingsOut(BaseModel):
     tone: str
     fallback_message: str
     workflow_config_json: dict[str, Any]
+    openai_configured: bool = False
 
     model_config = {"from_attributes": True}
 
