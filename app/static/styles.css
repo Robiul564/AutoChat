@@ -380,6 +380,27 @@ pre {
   line-height: 1.4;
 }
 
+.message-debug {
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.message-debug summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.message-debug pre {
+  min-height: 0;
+  max-height: 180px;
+  overflow: auto;
+  margin: 8px 0 0;
+  padding: 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .reply,
 .search,
 .toolbar {

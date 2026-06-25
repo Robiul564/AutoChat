@@ -205,6 +205,7 @@ async function openConversation(id) {
         <div class="meta">${messageStatusText(m)}</div>
         <div>${escapeHtml(m.body)}</div>
         ${messageErrorText(m)}
+        ${messageDebugDetails(m)}
       </div>`
     )
     .join("");
@@ -226,6 +227,18 @@ function messageErrorText(message) {
   const error = message.provider_payload_json?.error || message.provider_payload_json?.errors?.[0];
   if (!error) return "";
   return `<div class="message-error">${escapeHtml(typeof error === "string" ? error : JSON.stringify(error))}</div>`;
+}
+
+function messageDebugDetails(message) {
+  if (message.direction !== "outbound") return "";
+  const payload = message.provider_payload_json || {};
+  const providerId = message.provider_message_id ? `<div>Provider ID: ${escapeHtml(message.provider_message_id)}</div>` : "";
+  const payloadText = Object.keys(payload).length ? JSON.stringify(payload, null, 2) : "{}";
+  return `<details class="message-debug">
+    <summary>Meta send details</summary>
+    ${providerId}
+    <pre>${escapeHtml(payloadText)}</pre>
+  </details>`;
 }
 
 function escapeHtml(text) {
