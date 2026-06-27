@@ -4,7 +4,6 @@ from app import schemas
 from app.core.config import settings
 from app.core.security import get_actor_email
 from app.core.url import public_base_url_from_request
-from app.core.version import APP_VERSION, SEND_ERROR_FORMAT
 
 router = APIRouter(prefix="/api/platform", tags=["platform"])
 
@@ -14,16 +13,6 @@ def session(actor_email: str = Depends(get_actor_email)):
     return {
         "actor_email": actor_email,
         "is_platform_admin": actor_email.lower() in settings.platform_admin_email_set,
-    }
-
-
-@router.get("/version")
-def version():
-    return {
-        "app_version": APP_VERSION,
-        "send_error_format": SEND_ERROR_FORMAT,
-        "whatsapp_send_mode": settings.whatsapp_send_mode,
-        "environment": settings.app_env,
     }
 
 

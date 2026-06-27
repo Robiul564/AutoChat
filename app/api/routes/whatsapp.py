@@ -43,16 +43,6 @@ def save_account(business_id: int, payload: schemas.WhatsAppAccountCreate, db: S
     return whatsapp.save_account(db, business_id, payload)
 
 
-@router.patch("/{account_id}", response_model=schemas.WhatsAppAccountOut)
-def update_account(business_id: int, account_id: int, payload: schemas.WhatsAppAccountUpdate, db: Session = Depends(get_db), actor_email: str = Depends(get_actor_email)):
-    require_platform_admin(actor_email)
-    require_business_access(db, business_id, actor_email)
-    account = db.query(models.WhatsAppAccount).filter(models.WhatsAppAccount.business_id == business_id, models.WhatsAppAccount.id == account_id).one_or_none()
-    if not account:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="WhatsApp account not found")
-    return whatsapp.update_account(db, account, payload)
-
-
 @router.post("/{account_id}/validate")
 def validate_account(business_id: int, account_id: int, db: Session = Depends(get_db), actor_email: str = Depends(get_actor_email)):
     require_platform_admin(actor_email)

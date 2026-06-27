@@ -120,10 +120,6 @@ button.danger {
   color: #be123c;
 }
 
-button.secondary {
-  background: white;
-}
-
 .tab.active,
 button:hover {
   background: var(--accent);
@@ -147,10 +143,6 @@ button.danger:hover {
 }
 
 .platform-hidden {
-  display: none !important;
-}
-
-.hidden {
   display: none !important;
 }
 
@@ -334,23 +326,9 @@ pre {
   background: white;
 }
 
-.account-row,
-.active-business-panel {
+.account-row {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-}
-
-.account-actions,
-.business-actions,
-.form-actions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.business-actions button,
-.form-actions button {
-  flex: 1;
 }
 
 .mini-item-main {

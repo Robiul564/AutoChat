@@ -64,61 +64,6 @@ def validate_account(db: Session, account: models.WhatsAppAccount) -> dict[str, 
     return {"valid": account.status == "connected", "status": account.status, "checked_at": account.last_validated_at}
 
 
-def update_account(db: Session, account: models.WhatsAppAccount, payload: schemas.WhatsAppAccountUpdate) -> models.WhatsAppAccount:
-    before = {
-        "app_id": account.app_id,
-        "phone_number_id": account.phone_number_id,
-        "waba_id": account.waba_id,
-        "display_phone_number": account.display_phone_number,
-        "status": account.status,
-        "token_expires_at": account.token_expires_at,
-    }
-    update = payload.model_dump(exclude_unset=True)
-    if "app_id" in update and payload.app_id is not None:
-        account.app_id = payload.app_id
-    if "phone_number_id" in update and payload.phone_number_id is not None:
-        account.phone_number_id = payload.phone_number_id
-    if "waba_id" in update:
-        account.waba_id = payload.waba_id or None
-    if "display_phone_number" in update:
-        account.display_phone_number = payload.display_phone_number or None
-    if "token_expires_at" in update:
-        account.token_expires_at = payload.token_expires_at
-    if payload.app_secret:
-        rotate_secret(db, account.app_secret_secret_id, payload.app_secret)
-    if payload.access_token:
-        rotate_secret(db, account.access_token_secret_id, payload.access_token, payload.token_expires_at)
-        account.token_expires_at = payload.token_expires_at
-    if payload.webhook_verify_token:
-        if account.webhook_verify_token_secret_id:
-            rotate_secret(db, account.webhook_verify_token_secret_id, payload.webhook_verify_token)
-        else:
-            verify = store_secret(db, account.business_id, "whatsapp_verify_token", payload.webhook_verify_token)
-            account.webhook_verify_token_secret_id = verify.id
-    account.status = "connected" if account.access_token_secret_id and account.phone_number_id else "pending_validation"
-    account.last_validated_at = datetime.utcnow() if account.status == "connected" else None
-    try:
-        db.flush()
-    except IntegrityError as exc:
-        db.rollback()
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Phone number ID is already connected") from exc
-    after = {
-        "app_id": account.app_id,
-        "phone_number_id": account.phone_number_id,
-        "waba_id": account.waba_id,
-        "display_phone_number": account.display_phone_number,
-        "status": account.status,
-        "token_expires_at": account.token_expires_at,
-        "rotated_app_secret": bool(payload.app_secret),
-        "rotated_access_token": bool(payload.access_token),
-        "updated_webhook_verify_token": bool(payload.webhook_verify_token),
-    }
-    audit(db, business_id=account.business_id, action="whatsapp.account.updated", entity_type="whatsapp_account", entity_id=str(account.id), before=before, after=after)
-    db.commit()
-    db.refresh(account)
-    return account
-
-
 def rotate_token(db: Session, account: models.WhatsAppAccount, payload: schemas.TokenRotate) -> models.WhatsAppAccount:
     rotate_secret(db, account.access_token_secret_id, payload.access_token, payload.expires_at)
     account.token_expires_at = payload.expires_at
@@ -169,19 +114,6 @@ def resolve_business_webhook_account(db: Session, business_id: int) -> models.Wh
         .order_by(models.WhatsAppAccount.created_at.desc())
         .first()
     )
-
-
-def resolve_single_connected_account(db: Session) -> models.WhatsAppAccount | None:
-    accounts = (
-        db.query(models.WhatsAppAccount)
-        .filter(models.WhatsAppAccount.status.in_(["connected", "reauth_required"]))
-        .order_by(models.WhatsAppAccount.created_at.desc())
-        .limit(2)
-        .all()
-    )
-    if len(accounts) == 1:
-        return accounts[0]
-    return None
 
 
 def send_text(db: Session, business_id: int, conversation_id: int, customer_id: int, body: str, ai_generated: bool = False) -> models.Message:
@@ -298,27 +230,5 @@ def send_text_live(db: Session, account: models.WhatsAppAccount, customer_id: in
             data = response.json()
             logger.info("WhatsApp live send accepted by Meta for phone_number_id=%s customer=%s", account.phone_number_id, customer.whatsapp_user_id)
             return data
-    except httpx.HTTPStatusError as exc:
-        response = exc.response
-        try:
-            error_body: Any = response.json()
-        except ValueError:
-            error_body = response.text
-        detail = {
-            "message": "WhatsApp send failed",
-            "status_code": response.status_code,
-            "graph_url": url,
-            "phone_number_id": account.phone_number_id,
-            "to": customer.whatsapp_user_id,
-            "meta_error": error_body,
-        }
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=detail) from exc
     except httpx.HTTPError as exc:
-        detail = {
-            "message": "WhatsApp send failed",
-            "graph_url": url,
-            "phone_number_id": account.phone_number_id,
-            "to": customer.whatsapp_user_id,
-            "error": str(exc),
-        }
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=detail) from exc
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"WhatsApp send failed: {exc}") from exc

@@ -18,7 +18,6 @@ class BusinessUpdate(BaseModel):
     timezone: str | None = None
     locale: str | None = None
     status: str | None = None
-    plan_id: str | None = None
 
 
 class BusinessOut(BaseModel):
@@ -40,17 +39,6 @@ class WhatsAppAccountCreate(BaseModel):
     app_secret: str
     access_token: str
     phone_number_id: str
-    waba_id: str | None = None
-    display_phone_number: str | None = None
-    webhook_verify_token: str | None = None
-    token_expires_at: datetime | None = None
-
-
-class WhatsAppAccountUpdate(BaseModel):
-    app_id: str | None = None
-    app_secret: str | None = None
-    access_token: str | None = None
-    phone_number_id: str | None = None
     waba_id: str | None = None
     display_phone_number: str | None = None
     webhook_verify_token: str | None = None
@@ -221,5 +209,3 @@ class ToolExecutionRequest(BaseModel):
 class WebhookAccepted(BaseModel):
     accepted: bool
     events: int
-    ignored: int = 0
-

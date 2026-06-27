@@ -2,9 +2,7 @@ const state = {
   businessId: null,
   conversationId: null,
   tools: [],
-  businesses: [],
   whatsappAccounts: [],
-  editingWhatsAppAccountId: null,
   isPlatformAdmin: false,
 };
 
@@ -26,11 +24,7 @@ async function api(path, options = {}) {
       data = { detail: text };
     }
   }
-  if (!res.ok) {
-    const detail = data?.detail;
-    const message = typeof detail === "string" ? detail : detail ? JSON.stringify(detail) : res.statusText || "Request failed";
-    throw new Error(message);
-  }
+  if (!res.ok) throw new Error(data?.detail || res.statusText || "Request failed");
   return data;
 }
 
@@ -48,49 +42,6 @@ function formData(form) {
 function selectedBusinessId() {
   const value = $("#businessSelect")?.value;
   return value ? Number(value) : null;
-}
-
-function currentBusiness() {
-  return state.businesses.find((business) => business.id === Number(state.businessId)) || null;
-}
-
-function renderActiveBusinessPanel() {
-  const business = currentBusiness();
-  const panel = $("#activeBusinessPanel");
-  panel.classList.toggle("hidden", !business);
-  $("#businessEditForm").classList.add("hidden");
-  if (!business) return;
-  $("#activeBusinessName").textContent = `#${business.id} ${business.name}`;
-  $("#activeBusinessMeta").textContent = `${business.status} - ${business.industry || "No industry"} - ${business.timezone} - ${business.locale} - ${business.plan_id}`;
-  panel.querySelectorAll(".platform-only").forEach((el) => {
-    el.classList.toggle("platform-hidden", !state.isPlatformAdmin);
-  });
-}
-
-function businessPayloadFromEditForm(form) {
-  const payload = formData(form);
-  Object.keys(payload).forEach((key) => {
-    if (payload[key] === "") delete payload[key];
-  });
-  return payload;
-}
-
-function startBusinessEdit() {
-  const business = currentBusiness();
-  if (!business) return toast("Select a business first");
-  const form = $("#businessEditForm");
-  form.elements.name.value = business.name || "";
-  form.elements.industry.value = business.industry || "";
-  form.elements.timezone.value = business.timezone || "";
-  form.elements.locale.value = business.locale || "";
-  form.elements.status.value = business.status || "profile_complete";
-  form.elements.plan_id.value = business.plan_id || "starter";
-  form.classList.remove("hidden");
-  form.scrollIntoView({ behavior: "smooth", block: "nearest" });
-}
-
-function cancelBusinessEdit() {
-  $("#businessEditForm").classList.add("hidden");
 }
 
 function setWebhookPlaceholder(message) {
@@ -144,35 +95,16 @@ async function loadSession() {
   }
 }
 
-async function loadRuntimeVersion() {
-  try {
-    const version = await api("/api/platform/version");
-    const label = `${version.app_version} · ${version.send_error_format} · WhatsApp ${version.whatsapp_send_mode}`;
-    $("#runtimeVersion").textContent = `Backend ${label}`;
-  } catch {
-    $("#runtimeVersion").textContent = "Backend version unavailable";
-  }
-}
-
 async function loadBusinesses() {
   const businesses = await api("/api/businesses");
-  state.businesses = businesses;
   const select = $("#businessSelect");
-  if (!businesses.length) {
-    state.businessId = null;
-    state.conversationId = null;
-    select.innerHTML = `<option value="">No active business found</option>`;
-    setWebhookPlaceholder("Create a business first");
-    renderActiveBusinessPanel();
-    return businesses;
-  }
-  select.innerHTML = businesses.map((b) => `<option value="${b.id}">#${b.id} ${escapeHtml(b.name)} (${escapeHtml(b.status)})</option>`).join("");
+  select.innerHTML = businesses.map((b) => `<option value="${b.id}">#${b.id} ${b.name} (${b.status})</option>`).join("");
   const hasSelectedBusiness = businesses.some((business) => business.id === Number(state.businessId));
   if (businesses.length && (!state.businessId || !hasSelectedBusiness)) {
     state.businessId = businesses[0].id;
   }
   if (state.businessId) select.value = state.businessId;
-  renderActiveBusinessPanel();
+  if (!businesses.length) setWebhookPlaceholder("Create a business first");
   return businesses;
 }
 
@@ -250,65 +182,17 @@ async function loadWhatsAppSetup() {
               <strong>${escapeHtml(account.display_phone_number || account.phone_number_id)}</strong>
               <span>${account.status} · Phone ID ${escapeHtml(account.phone_number_id)}</span>
             </div>
-            <div class="account-actions platform-only">
-              <button type="button" class="small" data-edit-whatsapp="${account.id}">Edit</button>
-              <button type="button" class="danger small" data-delete-whatsapp="${account.id}">Delete</button>
-            </div>
+            <button type="button" class="danger small platform-only" data-delete-whatsapp="${account.id}">Delete</button>
           </div>`
         )
         .join("")
     : `<div class="mini-item"><span>No WhatsApp account connected for this business yet.</span></div>`;
-  document.querySelectorAll("[data-edit-whatsapp]").forEach((button) => {
-    button.addEventListener("click", () => startWhatsAppEdit(Number(button.dataset.editWhatsapp)));
-  });
   document.querySelectorAll("[data-delete-whatsapp]").forEach((button) => {
     button.addEventListener("click", () => deleteWhatsAppAccount(Number(button.dataset.deleteWhatsapp)));
   });
   document.querySelectorAll("#whatsappAccounts .platform-only").forEach((el) => {
     el.classList.toggle("platform-hidden", !state.isPlatformAdmin);
   });
-}
-
-function setWhatsAppFormMode(account = null) {
-  const form = $("#whatsappForm");
-  const isEditing = Boolean(account);
-  state.editingWhatsAppAccountId = account?.id || null;
-  form.dataset.mode = isEditing ? "edit" : "create";
-  $("#whatsappSubmit").textContent = isEditing ? "Save WhatsApp changes" : "Connect WhatsApp";
-  $("#cancelWhatsAppEdit").classList.toggle("hidden", !isEditing);
-  form.querySelector("[name=app_secret]").required = !isEditing;
-  form.querySelector("[name=access_token]").required = !isEditing;
-  form.querySelector("[name=app_secret]").placeholder = isEditing ? "Leave blank to keep current secret" : "Paste app secret";
-  form.querySelector("[name=access_token]").placeholder = isEditing ? "Leave blank to keep current token" : "EAAG...";
-  if (!isEditing) {
-    form.reset();
-    return;
-  }
-  form.elements.app_id.value = account.app_id || "";
-  form.elements.app_secret.value = "";
-  form.elements.access_token.value = "";
-  form.elements.phone_number_id.value = account.phone_number_id || "";
-  form.elements.waba_id.value = account.waba_id || "";
-  form.elements.display_phone_number.value = account.display_phone_number || "";
-}
-
-function startWhatsAppEdit(accountId) {
-  const account = state.whatsappAccounts.find((item) => item.id === accountId);
-  if (!account) return toast("Could not find that WhatsApp account");
-  setWhatsAppFormMode(account);
-  $("#whatsappForm").scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-function whatsappPayloadFromForm(form) {
-  const payload = formData(form);
-  if (state.editingWhatsAppAccountId) {
-    Object.keys(payload).forEach((key) => {
-      if (["app_secret", "access_token", "webhook_verify_token"].includes(key) && !payload[key]) {
-        delete payload[key];
-      }
-    });
-  }
-  return payload;
 }
 
 async function refreshWebhookSetup() {
@@ -359,8 +243,7 @@ function messageStatusText(message) {
 function messageErrorText(message) {
   const error = message.provider_payload_json?.error || message.provider_payload_json?.errors?.[0];
   if (!error) return "";
-  const text = typeof error === "string" ? error : JSON.stringify(error, null, 2);
-  return `<div class="message-error">${escapeHtml(text)}</div>`;
+  return `<div class="message-error">${escapeHtml(typeof error === "string" ? error : JSON.stringify(error))}</div>`;
 }
 
 function messageDebugDetails(message) {
@@ -458,50 +341,10 @@ $("#businessSelect").addEventListener("change", async (event) => {
   await runUiAction(async () => {
     state.businessId = Number(event.target.value);
     state.conversationId = null;
-    renderActiveBusinessPanel();
     await loadWhatsAppSetup();
     await loadInbox();
   });
 });
-
-$("#editBusiness").addEventListener("click", startBusinessEdit);
-$("#cancelBusinessEdit").addEventListener("click", cancelBusinessEdit);
-
-$("#businessEditForm").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const form = event.currentTarget;
-  await runUiAction(async () => {
-    if (!state.businessId) return toast("Select a business first");
-    const business = await api(`/api/businesses/${state.businessId}`, { method: "PATCH", body: JSON.stringify(businessPayloadFromEditForm(form)) });
-    state.businessId = business.id;
-    await loadBusinesses();
-    $("#businessSelect").value = business.id;
-    cancelBusinessEdit();
-    await loadWhatsAppSetup();
-    await loadInbox();
-    await loadBotBehavior();
-    toast("Business updated");
-  });
-});
-
-$("#deleteBusiness").addEventListener("click", async () => {
-  await runUiAction(async () => {
-    const business = currentBusiness();
-    if (!business) return toast("Select a business first");
-    const label = `#${business.id} ${business.name}`;
-    if (!confirm(`Delete ${label}? This permanently removes its WhatsApp accounts, conversations, messages, knowledge, settings, tools, secrets, onboarding, and audit logs.`)) return;
-    await api(`/api/businesses/${business.id}`, { method: "DELETE" });
-    state.businessId = null;
-    state.conversationId = null;
-    state.whatsappAccounts = [];
-    await loadBusinesses();
-    await loadWhatsAppSetup();
-    await loadInbox();
-    await loadBotBehavior();
-    toast("Business deleted");
-  });
-});
-
 
 $("#actorEmail").addEventListener("change", async () => {
   await runUiAction(async () => {
@@ -528,19 +371,11 @@ $("#whatsappForm").addEventListener("submit", async (event) => {
   const form = event.currentTarget;
   await runUiAction(async () => {
     if (!state.businessId) return toast("Create a tenant first");
-    const accountId = state.editingWhatsAppAccountId;
-    const method = accountId ? "PATCH" : "POST";
-    const path = accountId
-      ? `/api/businesses/${state.businessId}/whatsapp/accounts/${accountId}`
-      : `/api/businesses/${state.businessId}/whatsapp/accounts`;
-    await api(path, { method, body: JSON.stringify(whatsappPayloadFromForm(form)) });
-    setWhatsAppFormMode();
+    await api(`/api/businesses/${state.businessId}/whatsapp/accounts`, { method: "POST", body: JSON.stringify(formData(form)) });
     await loadWhatsAppSetup();
-    toast(accountId ? "WhatsApp account updated" : "WhatsApp connected");
+    toast("WhatsApp connected");
   });
 });
-
-$("#cancelWhatsAppEdit").addEventListener("click", () => setWhatsAppFormMode());
 
 $("#knowledgeForm").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -648,9 +483,6 @@ $("#loadAnalytics").addEventListener("click", async () => {
 setWebhookPlaceholder("Select a business");
 
 loadSession()
-  .then(async () => {
-    await loadRuntimeVersion();
-  })
   .then(loadBusinesses)
   .then(async () => {
     await loadWhatsAppSetup();
