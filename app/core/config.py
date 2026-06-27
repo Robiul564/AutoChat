@@ -25,7 +25,10 @@ class Settings:
     allowed_origins: str = os.getenv("ALLOWED_ORIGINS", "http://127.0.0.1:8000,http://localhost:8000")
     allowed_hosts: str = os.getenv("ALLOWED_HOSTS", "127.0.0.1,localhost")
     enable_docs: bool = os.getenv("ENABLE_DOCS", "true").lower() in {"1", "true", "yes", "on"}
+    meta_app_id: str = os.getenv("META_APP_ID", "")
     meta_app_secret: str = os.getenv("META_APP_SECRET", "")
+    meta_embedded_signup_config_id: str = os.getenv("META_EMBEDDED_SIGNUP_CONFIG_ID", "")
+    meta_graph_api_version: str = os.getenv("META_GRAPH_API_VERSION", "v20.0")
     public_base_url: str = os.getenv("PUBLIC_BASE_URL", "")
     webhook_verify_token: str = os.getenv("WEBHOOK_VERIFY_TOKEN", "platform-dev-token")
     whatsapp_send_mode: str = os.getenv("WHATSAPP_SEND_MODE", "auto")
@@ -80,6 +83,8 @@ class Settings:
             problems.append("ALLOWED_HOSTS cannot contain * in production.")
         if self.whatsapp_send_mode.lower() == "live" and not self.meta_app_secret:
             problems.append("META_APP_SECRET is required when WHATSAPP_SEND_MODE=live.")
+        if self.meta_embedded_signup_config_id and not self.meta_app_id:
+            problems.append("META_APP_ID is required when META_EMBEDDED_SIGNUP_CONFIG_ID is set.")
         if self.ai_model_provider == "openai" and not self.openai_api_key:
             problems.append("OPENAI_API_KEY is required when AI_MODEL_PROVIDER=openai.")
         if problems:

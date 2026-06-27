@@ -3,6 +3,8 @@ const state = {
   conversationId: null,
   tools: [],
   whatsappAccounts: [],
+  embeddedSignup: null,
+  embeddedSignupSelection: {},
   isPlatformAdmin: false,
 };
 
@@ -24,7 +26,11 @@ async function api(path, options = {}) {
       data = { detail: text };
     }
   }
-  if (!res.ok) throw new Error(data?.detail || res.statusText || "Request failed");
+  if (!res.ok) {
+    const detail = data?.detail;
+    const message = typeof detail === "string" ? detail : detail ? JSON.stringify(detail) : res.statusText || "Request failed";
+    throw new Error(message);
+  }
   return data;
 }
 
@@ -75,6 +81,95 @@ function callbackUrlForCurrentOrigin(callbackUrl) {
     return callbackUrl;
   }
 }
+
+function renderEmbeddedSignup(config) {
+  state.embeddedSignup = config;
+  const button = $("#embeddedSignupButton");
+  const details = $("#embeddedSignupDetails");
+  if (!button || !details) return;
+  button.disabled = !state.businessId || !config?.enabled;
+  details.classList.remove("hidden");
+  if (!state.businessId) {
+    details.textContent = "Create or select a business first.";
+    return;
+  }
+  if (!config?.enabled) {
+    details.textContent = "Embedded Signup is not configured yet. Ask the platform admin to set META_APP_ID and META_EMBEDDED_SIGNUP_CONFIG_ID.";
+    return;
+  }
+  details.textContent = "Ready. Click Connect WhatsApp and finish Meta's signup window.";
+}
+
+function initFacebookSdk(config) {
+  if (!config?.enabled || !window.FB) return false;
+  window.FB.init({
+    appId: config.app_id,
+    autoLogAppEvents: true,
+    xfbml: false,
+    version: config.graph_api_version,
+  });
+  return true;
+}
+
+function parseEmbeddedSignupMessage(event) {
+  if (!event.origin.endsWith("facebook.com")) return;
+  let payload = event.data;
+  if (typeof payload === "string") {
+    try {
+      payload = JSON.parse(payload);
+    } catch {
+      return;
+    }
+  }
+  if (!payload || payload.type !== "WA_EMBEDDED_SIGNUP") return;
+  const data = payload.data || {};
+  if (payload.event === "FINISH" || data.event === "FINISH") {
+    state.embeddedSignupSelection = {
+      phone_number_id: data.phone_number_id || data.phoneNumberId || data.phone?.id || state.embeddedSignupSelection.phone_number_id,
+      waba_id: data.waba_id || data.wabaId || data.business_account_id || data.whatsapp_business_account_id || state.embeddedSignupSelection.waba_id,
+      business_account_id: data.business_account_id || data.businessAccountId || state.embeddedSignupSelection.business_account_id,
+      display_phone_number: data.display_phone_number || data.displayPhoneNumber || data.phone?.display_phone_number || state.embeddedSignupSelection.display_phone_number,
+    };
+  }
+}
+
+function connectWithEmbeddedSignup() {
+  runUiAction(async () => {
+    if (!state.businessId) return toast("Create or select a business first");
+    const config = state.embeddedSignup || (await api(`/api/businesses/${state.businessId}/whatsapp/accounts/embedded-signup/config`));
+    renderEmbeddedSignup(config);
+    if (!config.enabled) return;
+    if (!initFacebookSdk(config)) return toast("Facebook SDK is still loading. Try again in a moment.");
+    state.embeddedSignupSelection = {};
+    window.FB.login(
+      async (response) => {
+        await runUiAction(async () => {
+          const code = response?.authResponse?.code;
+          if (!code) throw new Error("Meta signup did not return an authorization code");
+          const selection = state.embeddedSignupSelection || {};
+          if (!selection.phone_number_id) throw new Error("Meta signup did not return a phone number ID");
+          await api(`/api/businesses/${state.businessId}/whatsapp/accounts/embedded-signup/complete`, {
+            method: "POST",
+            body: JSON.stringify({ code, ...selection }),
+          });
+          await loadWhatsAppSetup();
+          toast("WhatsApp connected");
+        });
+      },
+      {
+        config_id: config.config_id,
+        response_type: "code",
+        override_default_response_type: true,
+        extras: {
+          setup: {},
+          featureType: "whatsapp_business_app_onboarding",
+        },
+      }
+    );
+  });
+}
+
+window.addEventListener("message", parseEmbeddedSignupMessage);
 
 async function runUiAction(fn) {
   try {
@@ -160,12 +255,15 @@ async function loadWhatsAppSetup() {
   if (!state.businessId) {
     const setup = await api("/api/platform/webhook-setup");
     renderWebhookSetup(setup);
+    renderEmbeddedSignup({ enabled: false });
     $("#whatsappAccounts").innerHTML = `<div class="mini-item"><span>Select a business to show connected WhatsApp accounts.</span></div>`;
     return;
   }
   $("#businessSelect").value = state.businessId;
   const setup = await api(`/api/businesses/${state.businessId}/whatsapp/accounts/webhook-setup`);
   renderWebhookSetup(setup);
+  const embeddedConfig = await api(`/api/businesses/${state.businessId}/whatsapp/accounts/embedded-signup/config`);
+  renderEmbeddedSignup(embeddedConfig);
   let accounts;
   try {
     accounts = await api(`/api/businesses/${state.businessId}/whatsapp/accounts`);
@@ -174,6 +272,16 @@ async function loadWhatsAppSetup() {
     throw error;
   }
   state.whatsappAccounts = accounts;
+  const connectedAccount = accounts[0];
+  if (connectedAccount) {
+    $("#embeddedSignupTitle").textContent = "WhatsApp connected";
+    $("#embeddedSignupStatus").textContent = `${connectedAccount.display_phone_number || connectedAccount.phone_number_id} is connected for this business.`;
+    $("#embeddedSignupButton").textContent = "Reconnect WhatsApp";
+  } else {
+    $("#embeddedSignupTitle").textContent = "Connect your WhatsApp number";
+    $("#embeddedSignupStatus").textContent = "Use Meta's secure signup to connect WhatsApp without technical keys.";
+    $("#embeddedSignupButton").textContent = "Connect WhatsApp";
+  }
   $("#whatsappAccounts").innerHTML = accounts.length
     ? accounts
         .map(
@@ -469,6 +577,7 @@ $("#replyForm").addEventListener("submit", async (event) => {
   });
 });
 
+$("#embeddedSignupButton").addEventListener("click", connectWithEmbeddedSignup);
 $("#simulateWebhook").addEventListener("click", simulateWebhook);
 $("#refreshInbox").addEventListener("click", () => runUiAction(refreshInbox));
 $("#refreshWebhookSetup").addEventListener("click", () => runUiAction(refreshWebhookSetup));

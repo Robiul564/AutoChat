@@ -146,6 +146,10 @@ button.danger:hover {
   display: none !important;
 }
 
+.hidden {
+  display: none !important;
+}
+
 .stack {
   display: grid;
   gap: 12px;
@@ -270,6 +274,28 @@ pre {
   overflow: auto;
   margin: 0 0 14px;
   white-space: pre-wrap;
+}
+
+
+.connect-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafc;
+  margin-bottom: 12px;
+}
+
+.connect-card p {
+  margin: 3px 0 0;
+  font-size: 12px;
+}
+
+.connect-card button {
+  white-space: nowrap;
 }
 
 .webhook-card,

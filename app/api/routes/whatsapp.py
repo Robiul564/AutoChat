@@ -36,6 +36,28 @@ def webhook_setup(business_id: int, request: Request, db: Session = Depends(get_
         "is_public_url": public_base_url.startswith("https://"),
     }
 
+@router.get("/embedded-signup/config", response_model=schemas.WhatsAppEmbeddedSignupConfigOut)
+def embedded_signup_config(business_id: int, db: Session = Depends(get_db), actor_email: str = Depends(get_actor_email)):
+    require_business_access(db, business_id, actor_email)
+    return {
+        "enabled": whatsapp.embedded_signup_enabled(),
+        "app_id": settings.meta_app_id or None,
+        "config_id": settings.meta_embedded_signup_config_id or None,
+        "graph_api_version": settings.meta_graph_api_version,
+    }
+
+
+@router.post("/embedded-signup/complete", response_model=schemas.WhatsAppAccountOut)
+def complete_embedded_signup(
+    business_id: int,
+    payload: schemas.WhatsAppEmbeddedSignupComplete,
+    db: Session = Depends(get_db),
+    actor_email: str = Depends(get_actor_email),
+):
+    require_business_access(db, business_id, actor_email)
+    return whatsapp.complete_embedded_signup(db, business_id, payload)
+
+
 @router.post("", response_model=schemas.WhatsAppAccountOut)
 def save_account(business_id: int, payload: schemas.WhatsAppAccountCreate, db: Session = Depends(get_db), actor_email: str = Depends(get_actor_email)):
     require_platform_admin(actor_email)

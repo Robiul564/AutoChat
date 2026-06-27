@@ -66,6 +66,21 @@ class WhatsAppWebhookSetupOut(BaseModel):
     is_public_url: bool
 
 
+class WhatsAppEmbeddedSignupConfigOut(BaseModel):
+    enabled: bool
+    app_id: str | None = None
+    config_id: str | None = None
+    graph_api_version: str
+
+
+class WhatsAppEmbeddedSignupComplete(BaseModel):
+    code: str
+    phone_number_id: str
+    waba_id: str | None = None
+    business_account_id: str | None = None
+    display_phone_number: str | None = None
+
+
 class TokenRotate(BaseModel):
     access_token: str
     expires_at: datetime | None = None

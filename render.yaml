@@ -36,13 +36,19 @@ services:
       - key: ENABLE_DOCS
         value: false
       - key: ALLOWED_ORIGINS
-        value: https://autochat.onrender.com
+        value: https://autochat-j39p.onrender.com
       - key: ALLOWED_HOSTS
-        value: autochat.onrender.com,linaraman.onrender.com,*.onrender.com
+        value: autochat-j39p.onrender.com,autochat.onrender.com,linaraman.onrender.com,*.onrender.com
       - key: PUBLIC_BASE_URL
-        value: https://autochat.onrender.com
+        value: https://autochat-j39p.onrender.com
+      - key: META_APP_ID
+        sync: false
       - key: META_APP_SECRET
         sync: false
+      - key: META_EMBEDDED_SIGNUP_CONFIG_ID
+        sync: false
+      - key: META_GRAPH_API_VERSION
+        value: v20.0
       - key: OPENAI_API_KEY
         sync: false
 

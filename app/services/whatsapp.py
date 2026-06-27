@@ -26,6 +26,75 @@ def webhook_verify_token_for_business(business_id: int) -> str:
     return f"biz_{business_id}_{token}"
 
 
+def embedded_signup_enabled() -> bool:
+    return bool(settings.meta_app_id and settings.meta_app_secret and settings.meta_embedded_signup_config_id)
+
+
+def exchange_embedded_signup_code(code: str) -> str:
+    if not settings.meta_app_id or not settings.meta_app_secret:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Meta app credentials are not configured")
+    url = f"{settings.whatsapp_graph_api_url.rstrip('/')}/oauth/access_token"
+    params = {
+        "client_id": settings.meta_app_id,
+        "client_secret": settings.meta_app_secret,
+        "code": code,
+    }
+    try:
+        with httpx.Client(timeout=20) as client:
+            response = client.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+    except httpx.HTTPStatusError as exc:
+        try:
+            error_body: Any = exc.response.json()
+        except ValueError:
+            error_body = exc.response.text
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={"message": "Meta signup code exchange failed", "meta_error": error_body},
+        ) from exc
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Meta signup code exchange failed: {exc}") from exc
+    token = data.get("access_token")
+    if not token:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Meta did not return an access token")
+    return token
+
+
+def fetch_phone_number_profile(phone_number_id: str, access_token: str) -> dict[str, Any]:
+    url = f"{settings.whatsapp_graph_api_url.rstrip('/')}/{phone_number_id}"
+    try:
+        with httpx.Client(timeout=20) as client:
+            response = client.get(
+                url,
+                params={"fields": "display_phone_number,verified_name", "access_token": access_token},
+            )
+            response.raise_for_status()
+            return response.json()
+    except httpx.HTTPStatusError as exc:
+        logger.warning("Could not fetch WhatsApp phone profile for %s: %s", phone_number_id, exc.response.text)
+    except httpx.HTTPError as exc:
+        logger.warning("Could not fetch WhatsApp phone profile for %s: %s", phone_number_id, exc)
+    return {}
+
+
+def complete_embedded_signup(db: Session, business_id: int, payload: schemas.WhatsAppEmbeddedSignupComplete) -> models.WhatsAppAccount:
+    if not embedded_signup_enabled():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Meta Embedded Signup is not configured")
+    access_token = exchange_embedded_signup_code(payload.code)
+    profile = fetch_phone_number_profile(payload.phone_number_id, access_token)
+    display_phone_number = payload.display_phone_number or profile.get("display_phone_number") or profile.get("verified_name")
+    account_payload = schemas.WhatsAppAccountCreate(
+        app_id=settings.meta_app_id,
+        app_secret=settings.meta_app_secret,
+        access_token=access_token,
+        phone_number_id=payload.phone_number_id,
+        waba_id=payload.waba_id or payload.business_account_id,
+        display_phone_number=display_phone_number,
+    )
+    return save_account(db, business_id, account_payload)
+
+
 def save_account(db: Session, business_id: int, payload: schemas.WhatsAppAccountCreate) -> models.WhatsAppAccount:
     app_secret = store_secret(db, business_id, "whatsapp_app_secret", payload.app_secret)
     token = store_secret(db, business_id, "whatsapp_access_token", payload.access_token, payload.token_expires_at)

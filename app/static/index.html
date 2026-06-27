@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
+    <script async defer crossorigin="anonymous" src="https://connect.facebook.net/en_US/sdk.js"></script>
     <header class="topbar">
       <div>
         <h1>AI WhatsApp SaaS</h1>
@@ -53,8 +54,17 @@
           </label>
         </section>
 
-        <section class="platform-only">
+        <section>
           <h2>WhatsApp</h2>
+          <div class="connect-card">
+            <div>
+              <strong id="embeddedSignupTitle">Connect your WhatsApp number</strong>
+              <p id="embeddedSignupStatus">Use Meta's secure signup to connect WhatsApp without technical keys.</p>
+            </div>
+            <button id="embeddedSignupButton" type="button">Connect WhatsApp</button>
+          </div>
+          <div id="embeddedSignupDetails" class="status-box hidden"></div>
+          <div class="platform-only">
           <div class="webhook-card">
             <div class="webhook-row">
               <span>Callback URL</span>
@@ -72,7 +82,7 @@
             <button id="refreshWebhookSetup" type="button">Load webhook</button>
           </div>
           <div id="whatsappAccounts" class="mini-list"></div>
-          <form id="whatsappForm" class="stack">
+          <form id="whatsappForm" class="stack platform-only">
             <label class="field">
               <span>Meta App ID</span>
               <input name="app_id" placeholder="123456789012345" autocomplete="off" required />
@@ -97,8 +107,9 @@
               <span>Display phone number</span>
               <input name="display_phone_number" placeholder="+8801000000000" autocomplete="tel" />
             </label>
-            <button type="submit">Connect WhatsApp</button>
+            <button type="submit">Connect WhatsApp manually</button>
           </form>
+          </div>
         </section>
       </aside>
 
@@ -198,6 +209,6 @@
     </main>
 
     <div id="toast" role="status"></div>
-    <script src="/app.js?v=20260625-ai-auto-provider"></script>
+    <script src="/app.js?v=20260627-embedded-signup"></script>
   </body>
 </html>

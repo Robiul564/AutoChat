@@ -18,8 +18,8 @@ Database tables are created automatically when the app starts.
 6. Use `AI_MODEL_PROVIDER=auto` and `WHATSAPP_SEND_MODE=auto`. Add `OPENAI_API_KEY` when you want the bot to generate replies with OpenAI; without it, the app falls back to saved knowledge.
 7. After the first deploy, open the Render service URL.
 8. The Blueprint defaults to:
-   - `PUBLIC_BASE_URL=https://autochat.onrender.com`
-   - `ALLOWED_ORIGINS=https://autochat.onrender.com`
+   - `PUBLIC_BASE_URL=https://autochat-j39p.onrender.com`
+   - `ALLOWED_ORIGINS=https://autochat-j39p.onrender.com`
    - `ALLOWED_HOSTS=autochat.onrender.com,linaraman.onrender.com,*.onrender.com`
 9. If Render creates a different service URL, update those three values to match it.
 10. Copy the generated `ADMIN_API_KEY` from Render environment variables. You will need it in the app's Admin key field.
