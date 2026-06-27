@@ -224,3 +224,4 @@ class ToolExecutionRequest(BaseModel):
 class WebhookAccepted(BaseModel):
     accepted: bool
     events: int
+    ignored: int = 0

@@ -68,24 +68,22 @@ def verify_business_webhook(
 @router.post("/", response_model=schemas.WebhookAccepted)
 async def receive_webhook(request: Request, db: Session = Depends(get_db), _: None = Depends(verify_meta_signature)):
     payload = await request.json()
-    accepted = 0
-    for item in extract_events(payload, db):
+    events, ignored = extract_events(payload, db)
+    for item in events:
         await event_queue.publish(item)
-        accepted += 1
-    logger.info("Meta webhook accepted %s event(s) on platform endpoint", accepted)
-    return {"accepted": True, "events": accepted}
+    logger.info("Meta webhook accepted %s event(s), ignored %s event(s) on platform endpoint", len(events), ignored)
+    return {"accepted": True, "events": len(events), "ignored": ignored}
 
 
 @router.post("/business/{business_id}", response_model=schemas.WebhookAccepted)
 @router.post("/business/{business_id}/", response_model=schemas.WebhookAccepted)
 async def receive_business_webhook(business_id: int, request: Request, db: Session = Depends(get_db), _: None = Depends(verify_meta_signature)):
     payload = await request.json()
-    accepted = 0
-    for item in extract_events(payload, db, business_id=business_id):
+    events, ignored = extract_events(payload, db, business_id=business_id)
+    for item in events:
         await event_queue.publish(item)
-        accepted += 1
-    logger.info("Meta webhook accepted %s event(s) on business endpoint %s", accepted, business_id)
-    return {"accepted": True, "events": accepted}
+    logger.info("Meta webhook accepted %s event(s), ignored %s event(s) on business endpoint %s", len(events), ignored, business_id)
+    return {"accepted": True, "events": len(events), "ignored": ignored}
 
 
 def verify_token_matches(db: Session, verify_token: str, business_id: int | None = None) -> bool:
@@ -115,8 +113,9 @@ def verify_token_matches(db: Session, verify_token: str, business_id: int | None
     return False
 
 
-def extract_events(payload: dict[str, Any], db: Session, business_id: int | None = None) -> list[Event]:
+def extract_events(payload: dict[str, Any], db: Session, business_id=None):
     events: list[Event] = []
+    ignored = 0
     for entry in payload.get("entry", []):
         waba_id = str(entry.get("id")) if entry.get("id") else None
         for change in entry.get("changes", []):
@@ -125,7 +124,12 @@ def extract_events(payload: dict[str, Any], db: Session, business_id: int | None
             account = whatsapp.resolve_tenant(db, metadata, waba_id=waba_id)
             if not account and business_id is not None:
                 account = whatsapp.resolve_business_webhook_account(db, business_id)
+            if not account and business_id is None:
+                account = whatsapp.resolve_single_connected_account(db)
+                if account:
+                    logger.warning("Meta webhook metadata did not match a WhatsApp account; using the only connected account business=%s phone_number_id=%s",account.business_id,account.phone_number_id)
             if not account:
+                ignored += len(value.get("messages", [])) + len(value.get("statuses", []))
                 logger.warning(
                     "Ignoring Meta webhook event because no WhatsApp account matched metadata phone_number_id=%r waba_id=%r business_endpoint=%r",
                     metadata.get("phone_number_id"),
@@ -134,12 +138,14 @@ def extract_events(payload: dict[str, Any], db: Session, business_id: int | None
                 )
                 continue
             if business_id is not None and account.business_id != business_id:
+                ignored += len(value.get("messages", [])) + len(value.get("statuses", []))
                 logger.warning("Ignoring webhook event for business %s on business-specific endpoint %s", account.business_id, business_id)
                 continue
             contacts = {contact.get("wa_id"): contact.get("profile", {}).get("name") for contact in value.get("contacts", [])}
             for message in value.get("messages", []):
                 text = message.get("text", {}).get("body") or message.get("button", {}).get("text") or message.get("interactive", {}).get("button_reply", {}).get("title") or ""
                 if not message.get("id") or not message.get("from"):
+                    ignored += 1
                     continue
                 events.append(
                     Event(
@@ -164,4 +170,4 @@ def extract_events(payload: dict[str, Any], db: Session, business_id: int | None
                 )
             for status_payload in value.get("statuses", []):
                 events.append(Event(name="message.status.updated", business_id=account.business_id, payload=status_payload))
-    return events
+    return events, ignored
