@@ -100,17 +100,74 @@ function renderEmbeddedSignup(config) {
   details.textContent = "Ready. Click Connect WhatsApp and finish Meta's signup window.";
 }
 
-function initFacebookSdk(config) {
-  if (!config?.enabled || !window.FB) return false;
-  window.FB.init({
-    appId: config.app_id,
-    autoLogAppEvents: true,
-    xfbml: false,
-    version: config.graph_api_version,
+let facebookSdkPromise = null;
+let facebookInitKey = "";
+
+function loadFacebookSdk() {
+  if (window.FB) return Promise.resolve(window.FB);
+  if (facebookSdkPromise) return facebookSdkPromise;
+  facebookSdkPromise = new Promise((resolve, reject) => {
+    window.fbAsyncInit = function () {
+      resolve(window.FB);
+    };
+    const existing = document.getElementById("facebook-jssdk");
+    if (existing) return;
+    const js = document.createElement("script");
+    js.id = "facebook-jssdk";
+    js.async = true;
+    js.defer = true;
+    js.crossOrigin = "anonymous";
+    js.src = "https://connect.facebook.net/en_US/sdk.js";
+    js.onerror = function () {
+      reject(new Error("Could not load Facebook SDK"));
+    };
+    const firstScript = document.getElementsByTagName("script")[0];
+    if (firstScript && firstScript.parentNode) {
+      firstScript.parentNode.insertBefore(js, firstScript);
+    } else {
+      
+
+
+
+document.head.appendChild(js);
+    }
   });
-  return true;
+  return facebookSdkPromise;
 }
 
+function initFacebookSdk(config) {
+  if (!config?.enabled || !window.FB) return false;
+  const key = `${config.app_id || ""}::${config.graph_api_version || ""}`;
+  if (key !== facebookInitKey) {
+    window.FB.init({
+      appId: config.app_id,
+      cookie: true,
+      xfbml: true,
+      version: config.graph_api_version,
+    });
+    if (window.FB.AppEvents && typeof window.FB.AppEvents
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.logPageView === "function") {
+      window.FB.AppEvents.logPageView();
+    }
+    facebookInitKey = key;
+  }
+  return true;
+}
 function parseEmbeddedSignupMessage(event) {
   if (!event.origin.endsWith("facebook.com")) return;
   let payload = event.data;
@@ -138,9 +195,11 @@ function connectWithEmbeddedSignup() {
     if (!state.businessId) return toast("Create or select a business first");
     const config = state.embeddedSignup || (await api(`/api/businesses/${state.businessId}/whatsapp/accounts/embedded-signup/config`));
     renderEmbeddedSignup(config);
+    await loadFacebookSdk();
     if (!config.enabled) return;
     if (!initFacebookSdk(config)) return toast("Facebook SDK is still loading. Try again in a moment.");
     state.embeddedSignupSelection = {};
+    window.FB.getLoginStatus(function () {});
     window.FB.login(
       function (response) {
         runUiAction(async () => {

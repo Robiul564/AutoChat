@@ -5,9 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>AI WhatsApp SaaS</title>
     <link rel="stylesheet" href="/styles.css" />
+    <div id="fb-root"></div>
+    <script>
+      window.fbAsyncInit = function () {};
+      (function (d, s, id) {
+        var js;
+        var fjs = d.getElementsByTagName(s)[0];
+        if (d.getElementById(id)) return;
+        js = d.createElement(s);
+        js.id = id;
+        js.async = true;
+        js.defer = true;
+        js.crossOrigin = "anonymous";
+        js.src = "https://connect.facebook.net/en_US/sdk.js";
+        fjs.parentNode.insertBefore(js, fjs);
+      })(document, "script", "facebook-jssdk");
+    </script>
   </head>
   <body>
-    <script async defer crossorigin="anonymous" src="https://connect.facebook.net/en_US/sdk.js"></script>
     <header class="topbar">
       <div>
         <h1>AI WhatsApp SaaS</h1>
