@@ -33,6 +33,7 @@ class Settings:
     ai_model_provider: str = os.getenv("AI_MODEL_PROVIDER", "auto")
     ai_model_name: str = os.getenv("AI_MODEL_NAME", "gpt-5.5")
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
+    render_external_url: str = os.getenv("RENDER_EXTERNAL_URL", "")
 
     @property
     def platform_admin_email_set(self) -> set[str]:
@@ -56,6 +57,10 @@ class Settings:
             public_host = urlsplit(self.public_base_url).netloc
             if public_host and public_host not in hosts:
                 hosts.append(public_host)
+        if self.render_external_url:
+            render_host = urlsplit(self.render_external_url).netloc
+            if render_host and render_host not in hosts:
+                hosts.append(render_host)
         return hosts
 
     def validate_for_runtime(self) -> None:
