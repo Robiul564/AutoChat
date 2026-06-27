@@ -334,18 +334,21 @@ pre {
   background: white;
 }
 
-.account-row {
+.account-row,
+.active-business-panel {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
 }
 
 .account-actions,
+.business-actions,
 .form-actions {
   display: flex;
   gap: 8px;
   align-items: center;
 }
 
+.business-actions button,
 .form-actions button {
   flex: 1;
 }

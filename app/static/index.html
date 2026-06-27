@@ -52,6 +52,54 @@
             <span>Active business</span>
             <select id="businessSelect"></select>
           </label>
+          <div id="activeBusinessPanel" class="mini-item active-business-panel hidden">
+            <div class="mini-item-main">
+              <strong id="activeBusinessName">No business selected</strong>
+              <span id="activeBusinessMeta"></span>
+            </div>
+            <div class="business-actions platform-only">
+              <button id="editBusiness" type="button" class="small">Edit</button>
+              <button id="deleteBusiness" type="button" class="danger small">Delete</button>
+            </div>
+          </div>
+          <form id="businessEditForm" class="stack platform-only hidden">
+            <label class="field">
+              <span>Business name</span>
+              <input name="name" autocomplete="organization" required />
+            </label>
+            <label class="field">
+              <span>Industry</span>
+              <input name="industry" placeholder="Healthcare, restaurant, ecommerce" />
+            </label>
+            <div class="split">
+              <label class="field">
+                <span>Timezone</span>
+                <input name="timezone" placeholder="Asia/Dhaka" />
+              </label>
+              <label class="field">
+                <span>Locale</span>
+                <input name="locale" placeholder="en or bn-BD" />
+              </label>
+            </div>
+            <div class="split">
+              <label class="field">
+                <span>Status</span>
+                <select name="status">
+                  <option value="profile_complete">Profile complete</option>
+                  <option value="draft">Draft</option>
+                  <option value="suspended">Suspended</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Plan</span>
+                <input name="plan_id" placeholder="starter" />
+              </label>
+            </div>
+            <div class="form-actions">
+              <button type="submit">Save Business</button>
+              <button id="cancelBusinessEdit" type="button" class="secondary">Cancel</button>
+            </div>
+          </form>
         </section>
 
         <section class="platform-only">
@@ -202,6 +250,6 @@
     </main>
 
     <div id="toast" role="status"></div>
-    <script src="/app.js?v=20260625-edit-whatsapp"></script>
+    <script src="/app.js?v=20260627-business-edit-delete"></script>
   </body>
 </html>

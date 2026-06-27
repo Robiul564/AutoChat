@@ -36,9 +36,14 @@ Health check:
 Use:
 
 ```text
-Callback URL: https://YOUR-RENDER-SERVICE.onrender.com/webhooks/meta/whatsapp
-Verify token: value shown in the app WhatsApp panel
+Callback URL: use the business-specific URL shown in the app WhatsApp panel,
+for example https://YOUR-RENDER-SERVICE.onrender.com/webhooks/meta/whatsapp/business/1
+Verify token: the matching value shown in the same app WhatsApp panel
 ```
+
+The platform URL `/webhooks/meta/whatsapp` also works, but only when the saved
+WhatsApp `phone_number_id` or WABA ID exactly matches the metadata Meta sends in
+the webhook. For first setup, the business-specific URL is easier to verify.
 
 For live WhatsApp sending, only after testing webhooks:
 
@@ -62,3 +67,4 @@ The app refuses to start in `APP_ENV=production` if critical settings are unsafe
 - Free Render web services can sleep when idle.
 - Free Render Postgres expires after 30 days.
 - SQLite data should not be used on Render free services because local files can be lost.
+

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app import models, schemas
@@ -48,3 +48,11 @@ def suspend_business(business_id: int, db: Session = Depends(get_db), actor_emai
     db.commit()
     db.refresh(business)
     return business
+
+
+@router.delete("/{business_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_business(business_id: int, db: Session = Depends(get_db), actor_email: str = Depends(get_actor_email)):
+    require_platform_admin(actor_email)
+    business = require_business_access(db, business_id, actor_email)
+    tenant.delete_business(db, business)
+    return None

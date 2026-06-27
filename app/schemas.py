@@ -18,6 +18,7 @@ class BusinessUpdate(BaseModel):
     timezone: str | None = None
     locale: str | None = None
     status: str | None = None
+    plan_id: str | None = None
 
 
 class BusinessOut(BaseModel):
@@ -220,3 +221,5 @@ class ToolExecutionRequest(BaseModel):
 class WebhookAccepted(BaseModel):
     accepted: bool
     events: int
+    ignored: int = 0
+

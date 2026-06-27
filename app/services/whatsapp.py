@@ -171,6 +171,19 @@ def resolve_business_webhook_account(db: Session, business_id: int) -> models.Wh
     )
 
 
+def resolve_single_connected_account(db: Session) -> models.WhatsAppAccount | None:
+    accounts = (
+        db.query(models.WhatsAppAccount)
+        .filter(models.WhatsAppAccount.status.in_(["connected", "reauth_required"]))
+        .order_by(models.WhatsAppAccount.created_at.desc())
+        .limit(2)
+        .all()
+    )
+    if len(accounts) == 1:
+        return accounts[0]
+    return None
+
+
 def send_text(db: Session, business_id: int, conversation_id: int, customer_id: int, body: str, ai_generated: bool = False) -> models.Message:
     account = resolve_reply_account(db, business_id, conversation_id)
     if not account:

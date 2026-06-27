@@ -2,6 +2,7 @@ const state = {
   businessId: null,
   conversationId: null,
   tools: [],
+  businesses: [],
   whatsappAccounts: [],
   editingWhatsAppAccountId: null,
   isPlatformAdmin: false,
@@ -47,6 +48,49 @@ function formData(form) {
 function selectedBusinessId() {
   const value = $("#businessSelect")?.value;
   return value ? Number(value) : null;
+}
+
+function currentBusiness() {
+  return state.businesses.find((business) => business.id === Number(state.businessId)) || null;
+}
+
+function renderActiveBusinessPanel() {
+  const business = currentBusiness();
+  const panel = $("#activeBusinessPanel");
+  panel.classList.toggle("hidden", !business);
+  $("#businessEditForm").classList.add("hidden");
+  if (!business) return;
+  $("#activeBusinessName").textContent = `#${business.id} ${business.name}`;
+  $("#activeBusinessMeta").textContent = `${business.status} - ${business.industry || "No industry"} - ${business.timezone} - ${business.locale} - ${business.plan_id}`;
+  panel.querySelectorAll(".platform-only").forEach((el) => {
+    el.classList.toggle("platform-hidden", !state.isPlatformAdmin);
+  });
+}
+
+function businessPayloadFromEditForm(form) {
+  const payload = formData(form);
+  Object.keys(payload).forEach((key) => {
+    if (payload[key] === "") delete payload[key];
+  });
+  return payload;
+}
+
+function startBusinessEdit() {
+  const business = currentBusiness();
+  if (!business) return toast("Select a business first");
+  const form = $("#businessEditForm");
+  form.elements.name.value = business.name || "";
+  form.elements.industry.value = business.industry || "";
+  form.elements.timezone.value = business.timezone || "";
+  form.elements.locale.value = business.locale || "";
+  form.elements.status.value = business.status || "profile_complete";
+  form.elements.plan_id.value = business.plan_id || "starter";
+  form.classList.remove("hidden");
+  form.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function cancelBusinessEdit() {
+  $("#businessEditForm").classList.add("hidden");
 }
 
 function setWebhookPlaceholder(message) {
@@ -112,11 +156,14 @@ async function loadRuntimeVersion() {
 
 async function loadBusinesses() {
   const businesses = await api("/api/businesses");
+  state.businesses = businesses;
   const select = $("#businessSelect");
   if (!businesses.length) {
     state.businessId = null;
+    state.conversationId = null;
     select.innerHTML = `<option value="">No active business found</option>`;
     setWebhookPlaceholder("Create a business first");
+    renderActiveBusinessPanel();
     return businesses;
   }
   select.innerHTML = businesses.map((b) => `<option value="${b.id}">#${b.id} ${escapeHtml(b.name)} (${escapeHtml(b.status)})</option>`).join("");
@@ -125,6 +172,7 @@ async function loadBusinesses() {
     state.businessId = businesses[0].id;
   }
   if (state.businessId) select.value = state.businessId;
+  renderActiveBusinessPanel();
   return businesses;
 }
 
@@ -410,10 +458,50 @@ $("#businessSelect").addEventListener("change", async (event) => {
   await runUiAction(async () => {
     state.businessId = Number(event.target.value);
     state.conversationId = null;
+    renderActiveBusinessPanel();
     await loadWhatsAppSetup();
     await loadInbox();
   });
 });
+
+$("#editBusiness").addEventListener("click", startBusinessEdit);
+$("#cancelBusinessEdit").addEventListener("click", cancelBusinessEdit);
+
+$("#businessEditForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  await runUiAction(async () => {
+    if (!state.businessId) return toast("Select a business first");
+    const business = await api(`/api/businesses/${state.businessId}`, { method: "PATCH", body: JSON.stringify(businessPayloadFromEditForm(form)) });
+    state.businessId = business.id;
+    await loadBusinesses();
+    $("#businessSelect").value = business.id;
+    cancelBusinessEdit();
+    await loadWhatsAppSetup();
+    await loadInbox();
+    await loadBotBehavior();
+    toast("Business updated");
+  });
+});
+
+$("#deleteBusiness").addEventListener("click", async () => {
+  await runUiAction(async () => {
+    const business = currentBusiness();
+    if (!business) return toast("Select a business first");
+    const label = `#${business.id} ${business.name}`;
+    if (!confirm(`Delete ${label}? This permanently removes its WhatsApp accounts, conversations, messages, knowledge, settings, tools, secrets, onboarding, and audit logs.`)) return;
+    await api(`/api/businesses/${business.id}`, { method: "DELETE" });
+    state.businessId = null;
+    state.conversationId = null;
+    state.whatsappAccounts = [];
+    await loadBusinesses();
+    await loadWhatsAppSetup();
+    await loadInbox();
+    await loadBotBehavior();
+    toast("Business deleted");
+  });
+});
+
 
 $("#actorEmail").addEventListener("change", async () => {
   await runUiAction(async () => {
