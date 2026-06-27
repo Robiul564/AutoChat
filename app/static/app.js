@@ -142,8 +142,8 @@ function connectWithEmbeddedSignup() {
     if (!initFacebookSdk(config)) return toast("Facebook SDK is still loading. Try again in a moment.");
     state.embeddedSignupSelection = {};
     window.FB.login(
-      async (response) => {
-        await runUiAction(async () => {
+      function (response) {
+        runUiAction(async () => {
           const code = response?.authResponse?.code;
           if (!code) throw new Error("Meta signup did not return an authorization code");
           const selection = state.embeddedSignupSelection || {};
