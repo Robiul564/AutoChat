@@ -2,10 +2,8 @@ from fastapi import APIRouter, Depends, Request
 
 from app import schemas
 from app.core.config import settings
-from app.core.db import Base, SessionLocal, engine, ensure_runtime_schema
-from app.core.security import get_actor_email, require_platform_admin
+from app.core.security import get_actor_email
 from app.core.url import public_base_url_from_request
-from app.services.tools import seed_tools
 
 router = APIRouter(prefix="/api/platform", tags=["platform"])
 
@@ -29,16 +27,3 @@ def webhook_setup(request: Request):
         "graph_api_url": settings.whatsapp_graph_api_url,
         "is_public_url": public_base_url.startswith("https://"),
     }
-
-@router.post("/admin/reset-database")
-def reset_database(actor_email: str = Depends(get_actor_email)):
-    require_platform_admin(actor_email)
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
-    ensure_runtime_schema()
-    db = SessionLocal()
-    try:
-        seed_tools(db)
-    finally:
-        db.close()
-    return {"ok": True, "message": "Database reset complete"}
