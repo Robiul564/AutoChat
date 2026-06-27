@@ -3,6 +3,7 @@ from datetime import datetime
 import hashlib
 import hmac
 import logging
+import re
 from typing import Any
 from uuid import uuid4
 
@@ -129,16 +130,49 @@ def send_text(db: Session, business_id: int, conversation_id: int, customer_id: 
         provider_id = f"pending-{account.phone_number_id}-{uuid4().hex[:12]}"
         provider_status = "pending_provider"
         message_status = "pending_provider"
+        logger.info(
+            "Attempting WhatsApp live send: business=%s conversation=%s customer=%s phone_number_id=%s",
+            business_id,
+            conversation_id,
+            customer_id,
+            account.phone_number_id,
+        )
         try:
             provider_payload = send_text_live(db, account, customer_id, body)
             provider_id = provider_payload.get("messages", [{}])[0].get("id", provider_id)
             provider_status = "sent_to_provider"
             message_status = "accepted_by_meta"
         except HTTPException as exc:
-            provider_payload = {"error": exc.detail, "phone_number_id": account.phone_number_id}
-            provider_status = "failed"
-            message_status = "failed"
-            logger.warning("WhatsApp live send failed for business=%s phone_number_id=%s error=%s", business_id, account.phone_number_id, exc.detail)
+            fallback_sent = False
+            if _should_try_utility_template(exc) and settings.whatsapp_utility_template_name:
+                try:
+                    template_payload = send_utility_template_live(db, account, customer_id, body)
+                    provider_payload = {
+                        "fallback_used": "utility_template",
+                        "text_send_error": exc.detail,
+                        "template_send": template_payload,
+                    }
+                    provider_id = template_payload.get("messages", [{}])[0].get("id", provider_id)
+                    provider_status = "sent_to_provider"
+                    message_status = "accepted_by_meta"
+                    fallback_sent = True
+                    logger.info(
+                        "Utility template fallback sent for business=%s phone_number_id=%s template=%s",
+                        business_id,
+                        account.phone_number_id,
+                        settings.whatsapp_utility_template_name,
+                    )
+                except HTTPException as template_exc:
+                    provider_payload = {
+                        "error": template_exc.detail,
+                        "text_send_error": exc.detail,
+                        "phone_number_id": account.phone_number_id,
+                    }
+            if not fallback_sent:
+                provider_payload = provider_payload if provider_payload.get("error") else {"error": exc.detail, "phone_number_id": account.phone_number_id}
+                provider_status = "failed"
+                message_status = "failed"
+                logger.warning("WhatsApp live send failed for business=%s phone_number_id=%s error=%s", business_id, account.phone_number_id, exc.detail)
     else:
         logger.info(
             "WhatsApp reply saved without live send: mode=%s business=%s phone_number_id=%s",
@@ -209,6 +243,45 @@ def resolve_reply_account(db: Session, business_id: int, conversation_id: int) -
 
 
 def send_text_live(db: Session, account: models.WhatsAppAccount, customer_id: int, body: str) -> dict[str, Any]:
+    customer, token, url = _resolve_customer_token_url(db, account, customer_id)
+    recipient = _normalize_whatsapp_recipient(customer.phone_e164 or customer.whatsapp_user_id)
+    payload = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": recipient,
+        "type": "text",
+        "text": {"preview_url": False, "body": body},
+    }
+    return _post_messages(url, token, payload, account.phone_number_id, recipient)
+
+
+def send_utility_template_live(db: Session, account: models.WhatsAppAccount, customer_id: int, body_text: str) -> dict[str, Any]:
+    customer, token, url = _resolve_customer_token_url(db, account, customer_id)
+    recipient = _normalize_whatsapp_recipient(customer.phone_e164 or customer.whatsapp_user_id)
+    template_name = settings.whatsapp_utility_template_name.strip()
+    language = settings.whatsapp_utility_template_lang.strip() or "en_US"
+    if not template_name:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="WHATSAPP_UTILITY_TEMPLATE_NAME is not configured")
+    payload = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": recipient,
+        "type": "template",
+        "template": {
+            "name": template_name,
+            "language": {"code": language},
+            "components": [
+                {
+                    "type": "body",
+                    "parameters": [{"type": "text", "text": body_text}],
+                }
+            ],
+        },
+    }
+    return _post_messages(url, token, payload, account.phone_number_id, recipient)
+
+
+def _resolve_customer_token_url(db: Session, account: models.WhatsAppAccount, customer_id: int) -> tuple[models.Customer, str, str]:
     customer = db.get(models.Customer, customer_id)
     if not customer:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found")
@@ -217,18 +290,78 @@ def send_text_live(db: Session, account: models.WhatsAppAccount, customer_id: in
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="WhatsApp access token secret is missing")
     token = unwrap_secret(secret.encrypted_value)
     url = f"{settings.whatsapp_graph_api_url.rstrip('/')}/{account.phone_number_id}/messages"
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": customer.whatsapp_user_id,
-        "type": "text",
-        "text": {"preview_url": False, "body": body},
-    }
+    return customer, token, url
+
+
+def _normalize_whatsapp_recipient(raw_value: str) -> str:
+    value = (raw_value or "").strip()
+    if not value:
+        return value
+    compact = re.sub(r"[\s().-]", "", value)
+    if compact.startswith("+"):
+        normalized = compact
+    elif compact.isdigit():
+        normalized = f"+{compact}"
+    else:
+        normalized = value
+    if normalized != value:
+        logger.info("Normalized WhatsApp recipient from %s to %s", value, normalized)
+    return normalized
+
+def _post_messages(url: str, token: str, payload: dict[str, Any], phone_number_id: str, to: str) -> dict[str, Any]:
+    logger.info("Posting WhatsApp message to Meta: phone_number_id=%s to=%s type=%s", phone_number_id, to, payload.get("type"))
     try:
         with httpx.Client(timeout=20) as client:
             response = client.post(url, headers={"Authorization": f"Bearer {token}"}, json=payload)
             response.raise_for_status()
             data = response.json()
-            logger.info("WhatsApp live send accepted by Meta for phone_number_id=%s customer=%s", account.phone_number_id, customer.whatsapp_user_id)
+            logger.info("WhatsApp live send accepted by Meta for phone_number_id=%s customer=%s", phone_number_id, to)
             return data
+    except httpx.HTTPStatusError as exc:
+        meta_error = _safe_meta_error(exc.response)
+        logger.warning(
+            "WhatsApp Meta HTTP error: phone_number_id=%s to=%s status=%s meta_error=%s",
+            phone_number_id,
+            to,
+            exc.response.status_code,
+            meta_error,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "message": "WhatsApp send failed",
+                "http_status": exc.response.status_code,
+                "meta_error": meta_error,
+            },
+        ) from exc
     except httpx.HTTPError as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"WhatsApp send failed: {exc}") from exc
+        logger.warning("WhatsApp transport error: phone_number_id=%s to=%s error=%s", phone_number_id, to, exc)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail={"message": f"WhatsApp send failed: {exc}"}) from exc
+
+
+def _safe_meta_error(response: httpx.Response) -> dict[str, Any]:
+    try:
+        data = response.json()
+    except ValueError:
+        return {"raw": response.text}
+    if isinstance(data, dict):
+        error = data.get("error")
+        if isinstance(error, dict):
+            return error
+    return {"raw": data}
+
+
+def _should_try_utility_template(exc: HTTPException) -> bool:
+    detail = exc.detail if isinstance(exc.detail, dict) else {}
+    meta_error = detail.get("meta_error") if isinstance(detail.get("meta_error"), dict) else {}
+    code = meta_error.get("code")
+    message = str(meta_error.get("message", "")).lower()
+    should_fallback = code == 131047 or "outside the 24-hour" in message or "outside the customer service window" in message
+    if should_fallback:
+        logger.info("Utility template fallback eligible: code=%s message=%s", code, message)
+    return should_fallback
+
+
+
+
+

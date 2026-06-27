@@ -34,6 +34,8 @@ class Settings:
     ai_model_name: str = os.getenv("AI_MODEL_NAME", "gpt-5.5")
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     render_external_url: str = os.getenv("RENDER_EXTERNAL_URL", "")
+    whatsapp_utility_template_name: str = os.getenv("WHATSAPP_UTILITY_TEMPLATE_NAME", "")
+    whatsapp_utility_template_lang: str = os.getenv("WHATSAPP_UTILITY_TEMPLATE_LANG", "en_US")
 
     @property
     def platform_admin_email_set(self) -> set[str]:

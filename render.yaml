@@ -27,6 +27,10 @@ services:
         value: auto
       - key: WHATSAPP_GRAPH_API_URL
         value: https://graph.facebook.com/v20.0
+      - key: WHATSAPP_UTILITY_TEMPLATE_NAME
+        sync: false
+      - key: WHATSAPP_UTILITY_TEMPLATE_LANG
+        value: en_US
       - key: AI_MODEL_PROVIDER
         value: auto
       - key: AI_MODEL_NAME
@@ -49,3 +53,4 @@ services:
 databases:
   - name: linaraman-db
     plan: free
+
